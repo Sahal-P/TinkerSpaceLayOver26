@@ -1,0 +1,108 @@
+# Implementation phases
+
+The product is built UI-first: the complete experience runs on mock data before any backend is wired
+in, while a separate backend track builds the pipeline against the agreed contract. Every phase ends
+with `pnpm lint && pnpm typecheck && pnpm test && pnpm build` passing, a browser check, updated docs,
+and explicit approval before the next phase starts.
+
+## Phase 0: Foundation (done)
+
+- [x] Next.js 16 App Router + TypeScript (strict) on pnpm, with ESLint and Vitest
+- [x] Feature-based structure, design tokens, UI primitives
+- [x] Server-only env validation plus Firestore and Gemini clients
+- [x] Security headers, supply-chain settings, AGENTS.md and docs
+
+## Phase 1: Premium UI and immersive 3D (awaiting approval)
+
+Goal: the full journey, art-directed and production-quality, on typed mocks. No Gemini calls, no
+Firebase operations, no real recording.
+
+- [x] Palette and tokens: navy, muted teal, sky blue, beige and white from the reference,
+      with steel/airy/pale-blue supporting tones and accessible light/dark modes
+- [x] Navbar light/dark toggle, persisted preference, synchronized 3D day/night theme
+- [x] Shared animation system (Motion + CSS tokens) and primitives (Badge, Field, ChoiceChips,
+      ProgressBar)
+- [x] 3D miniature world (Three.js, React Three Fiber, Drei):
+  - terrain, village, landmarks and destination pin
+  - animated route and cinematic camera
+  - day and night themes
+  - quality tiers
+  - 2D fallback
+- [x] Landing:
+  - cinematic 3D hero
+  - photo bento of the demo route and a feature panel
+  - scroll-told how-it-works with a sticky phone
+  - Lens check band, CTA
+- [x] Record: consent, live waveform, timer, playback scrubbing, upload states, sample recording
+- [x] Processing: staged transcription → translation → landmarks → route, with a live preview
+- [x] Review: transcript with highlighted landmarks; edit, reorder, add or remove steps with Zod validation; resolve uncertainty
+- [x] Journey guide: swipeable step cards, compass dial, progress, interactive 3D route, arrival
+- [x] Lens check: camera/upload viewfinder, scan animation, match / unsure / mismatch verdicts
+- [x] Share: guide postcard, publish with warning acknowledgement, QR code, Web Share or copy, completion
+- [x] Accessibility and reduced motion; no dead ends; 404 page
+- [x] Design refresh (editorial travel direction):
+  - soft type (Fraunces with the SOFT axis, Figtree), sans caps and lighter surfaces; no numbered kickers
+  - split hero with a coastline-masked 3D island at sea
+  - photo bento of the demo route and a teal feature panel
+  - real, credited Pexels photography
+  - `/guide?step=N` deep links
+
+Acceptance: every screen works opened directly and through the flow, on phone and desktop, light and
+dark, with and without WebGL.
+
+## Phase 2: Backend pipeline (backend track, in parallel)
+
+Owned by the backend track. Details live in `docs/API.md`.
+
+- `POST /api/directions/extract`:
+  - multipart audio, at most 4 MiB and 120 s
+  - fields `languageHint`, `durationMs` and `consent`
+  - synchronous, with a 45 s deadline
+  - returns `{ data: draft, requestId }`
+- `POST /api/guides` saves a reviewed draft (`confirmed: true`). `GET /api/guides/:id` returns owner
+  drafts or published guides. `POST /api/guides/:id/publish` requires `acknowledgeWarnings` when
+  warnings remain. Owner unpublish/delete.
+- Anonymous, signed, HttpOnly same-browser ownership. Random share IDs. Public projections exclude
+  transcripts, evidence and audio.
+- Client-safe contract in `src/contracts/guide.ts`.
+
+## Phase 3: Integration
+
+Goal: real recordings produce real, shareable guides.
+
+- Bring in the backend review commit `f8752e8` from `feature/ai-backend` after the user approves
+  integration. Do not bring in the seed `5a96750`. Add `mediabunny@1.61.3` and keep the UI packages.
+- Map the UI view-models to `src/contracts/guide.ts`:
+  - nullable distances
+  - `unknown` direction (always low confidence with `needsReview`) and `incline`
+  - `source: "user"` with `evidence: null` for edited or reordered facts
+- Review semantics: `reviewed: true` means the traveler acknowledged the step, not that it was
+  resolved.
+  - **Confirm anyway** sets `reviewed: true` on every step and keeps `confidence`, `warnings` and
+    `needsReview`.
+  - A genuine correction of the flagged fact clears only that warning and recomputes `needsReview`.
+  - A cosmetic edit clears nothing.
+  - Save sends `confirmed: true`. Publish sends `acknowledgeWarnings: true` while any warning remains.
+  - The mock store currently treats any edit as resolving a step; replace that with an explicit
+    "resolve" action.
+- Real recording with `MediaRecorder`:
+  - mono, about 64 kbps, 2–120 s, consent required
+  - upload with XHR progress; abort the client after about 60 s with retry
+- Processing screen driven by the real request (hold the last stage until the response arrives) and
+  the error codes.
+- Public guide page `/g/[id]`: server-rendered through `getPublishedGuide`, `noindex`, QR from the
+  publish URL.
+- Playwright end-to-end tests for the full flow.
+
+Open decisions:
+
+- Real Lens check (on-device versus a Gemini vision call).
+- Offline handling.
+- Guide editing after publishing.
+
+## Phase 4: Hardening and launch
+
+- Nonce-based CSP, rate limiting and abuse controls, Firestore Security Rules.
+- Self-host the editorial photography, which is currently loaded from the Pexels CDN.
+- Observability (errors and logs without PII), performance budgets for the 3D chunk, and an accessibility audit.
+- Deployment target (Firebase App Hosting or Vercel), CI pipeline, and environments.

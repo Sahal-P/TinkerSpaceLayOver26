@@ -1,0 +1,267 @@
+/*
+ * Design tokens: the single source of truth for color, type, radius, shadow and motion.
+ * Components use the semantic utilities generated below (bg-surface, text-ink, ...),
+ * never raw palette values or hex codes. The 3D scene mirrors these colors in
+ * src/components/scene/palette.ts because WebGL can't read CSS variables.
+ */
+
+:root {
+  /* Labeled reference colors; screenshot shading is not part of the palette. */
+  --navy: #0d1b2a;
+  --teal: #4b6b7c;
+  --sky-blue: #c8d9e6;
+  --beige: #f2efe7;
+  --white: #ffffff;
+  --deep-navy: #1b263b;
+  --steel-blue: #3d5a80;
+  --airy-blue: #98b4c7;
+  --pale-blue: #d8e6f2;
+  --ice-blue: #eaf2f8;
+
+  /* Companion shades for muted copy, borders, hover states and dark panels. */
+  --blue-muted: #506778;
+  --teal-hover: #38596b;
+  --blue-line: #d0dce2;
+  --navy-sunken: #091420;
+  --navy-line: #2a3e50;
+  --navy-line-strong: #476078;
+  --navy-wash: #23384b;
+  --teal-night-wash: #33424a;
+  --steel-night-wash: #273b50;
+
+  /* Semantic tokens (light). */
+  --surface: var(--beige);
+  --surface-raised: var(--white);
+  --surface-sunken: var(--ice-blue);
+  --surface-inverse: var(--deep-navy);
+  --ink: var(--navy);
+  --ink-muted: var(--blue-muted);
+  --ink-inverse: var(--white);
+  --ink-inverse-muted: var(--sky-blue);
+  --line: var(--blue-line);
+  --line-strong: var(--airy-blue);
+  --line-inverse: var(--navy-line-strong);
+  --accent: var(--teal);
+  --accent-hover: var(--teal-hover);
+  --accent-ink: var(--teal-hover);
+  --accent-soft: var(--pale-blue);
+  --accent-vivid: var(--sky-blue);
+  --on-accent: var(--white);
+  --positive: var(--steel-blue);
+  --positive-soft: var(--pale-blue);
+  --caution: var(--teal);
+  --caution-soft: var(--beige);
+  --critical: var(--navy);
+  --critical-soft: var(--sky-blue);
+  --ring: var(--steel-blue);
+  --shadow-color: 13 27 42;
+  --sea: var(--sky-blue);
+  --scrim: var(--navy);
+  --photo-ink: var(--white);
+  --feature: var(--teal);
+  --on-feature: var(--white);
+  --earth-snow: var(--white);
+  --earth-rock: var(--teal);
+  --earth-rock-deep: var(--steel-blue);
+  --earth-meadow: var(--airy-blue);
+  --earth-meadow-deep: #7e9fb4;
+  --earth-sand: var(--beige);
+  --earth-clay: var(--steel-blue);
+  --water: var(--airy-blue);
+  --qr-paper: var(--white);
+  --qr-ink: var(--navy);
+  --gutter: 1.25rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface: var(--navy);
+    --surface-raised: var(--deep-navy);
+    --surface-sunken: var(--navy-sunken);
+    --ink: var(--beige);
+    --ink-muted: var(--airy-blue);
+    --line: var(--navy-line);
+    --line-strong: var(--navy-line-strong);
+    --accent: var(--airy-blue);
+    --accent-hover: var(--sky-blue);
+    --accent-ink: var(--sky-blue);
+    --accent-soft: var(--navy-wash);
+    --on-accent: var(--navy);
+    --positive: var(--airy-blue);
+    --positive-soft: var(--navy-wash);
+    --caution: var(--beige);
+    --caution-soft: var(--teal-night-wash);
+    --critical: var(--sky-blue);
+    --critical-soft: var(--steel-night-wash);
+    --ring: var(--sky-blue);
+    --shadow-color: 5 12 20;
+    --sea: var(--deep-navy);
+    --earth-snow: var(--sky-blue);
+    --earth-rock: var(--navy-line-strong);
+    --earth-rock-deep: var(--navy-line);
+    --earth-meadow: #31495c;
+    --earth-meadow-deep: #223749;
+    --earth-sand: #475e6a;
+    --earth-clay: var(--airy-blue);
+    --water: var(--steel-blue);
+  }
+}
+
+:root[data-theme="dark"] {
+  --surface: var(--navy);
+  --surface-raised: var(--deep-navy);
+  --surface-sunken: var(--navy-sunken);
+  --ink: var(--beige);
+  --ink-muted: var(--airy-blue);
+  --line: var(--navy-line);
+  --line-strong: var(--navy-line-strong);
+  --accent: var(--airy-blue);
+  --accent-hover: var(--sky-blue);
+  --accent-ink: var(--sky-blue);
+  --accent-soft: var(--navy-wash);
+  --on-accent: var(--navy);
+  --positive: var(--airy-blue);
+  --positive-soft: var(--navy-wash);
+  --caution: var(--beige);
+  --caution-soft: var(--teal-night-wash);
+  --critical: var(--sky-blue);
+  --critical-soft: var(--steel-night-wash);
+  --ring: var(--sky-blue);
+  --shadow-color: 5 12 20;
+  --sea: var(--deep-navy);
+  --earth-snow: var(--sky-blue);
+  --earth-rock: var(--navy-line-strong);
+  --earth-rock-deep: var(--navy-line);
+  --earth-meadow: #31495c;
+  --earth-meadow-deep: #223749;
+  --earth-sand: #475e6a;
+  --earth-clay: var(--airy-blue);
+  --water: var(--steel-blue);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+@media (width >= 40rem) {
+  :root {
+    --gutter: 2rem;
+  }
+}
+
+@media (width >= 80rem) {
+  :root {
+    --gutter: 3rem;
+  }
+}
+
+/* Runtime variables, so `inline` keeps light/dark switching working. */
+@theme inline {
+  /* Only semantic colors exist as utilities. */
+  --color-*: initial;
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-ink-inverse-muted: var(--ink-inverse-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-inverse: var(--line-inverse);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-vivid: var(--accent-vivid);
+  --color-on-accent: var(--on-accent);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-caution: var(--caution);
+  --color-caution-soft: var(--caution-soft);
+  --color-critical: var(--critical);
+  --color-critical-soft: var(--critical-soft);
+  --color-ring: var(--ring);
+  --color-sea: var(--sea);
+  --color-scrim: var(--scrim);
+  --color-photo-ink: var(--photo-ink);
+  --color-feature: var(--feature);
+  --color-on-feature: var(--on-feature);
+  --color-earth-snow: var(--earth-snow);
+  --color-earth-rock: var(--earth-rock);
+  --color-earth-rock-deep: var(--earth-rock-deep);
+  --color-earth-meadow: var(--earth-meadow);
+  --color-earth-meadow-deep: var(--earth-meadow-deep);
+  --color-earth-sand: var(--earth-sand);
+  --color-earth-clay: var(--earth-clay);
+  --color-water: var(--water);
+  --color-qr-paper: var(--qr-paper);
+  --color-qr-ink: var(--qr-ink);
+
+  /* Font variables come from next/font in src/app/layout.tsx. */
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+@theme {
+  /* Fluid editorial type scale for Fraunces (soft). The display size keeps the hero's two lines
+     on two lines in the split layout. */
+  --text-display: clamp(2.5rem, 0.2rem + 4.8vw, 4.75rem);
+  --text-display--line-height: 1;
+  --text-display--letter-spacing: -0.025em;
+  --text-display--font-weight: 400;
+  --text-headline: clamp(2.125rem, 1.4rem + 2.2vw, 3.625rem);
+  --text-headline--line-height: 1.05;
+  --text-headline--letter-spacing: -0.02em;
+  --text-headline--font-weight: 400;
+  --text-title: clamp(1.875rem, 1.5rem + 1.1vw, 2.5rem);
+  --text-title--line-height: 1.1;
+  --text-title--letter-spacing: -0.015em;
+  --text-title--font-weight: 400;
+  --tracking-caps: 0.14em;
+
+  --radius-card: 1.25rem;
+  --radius-panel: 1.75rem;
+  --radius-device: 2.75rem;
+
+  --shadow-soft: 0 1px 2px rgb(var(--shadow-color) / 0.05), 0 8px 24px -14px rgb(var(--shadow-color) / 0.2);
+  --shadow-lifted: 0 1px 3px rgb(var(--shadow-color) / 0.06), 0 24px 48px -28px rgb(var(--shadow-color) / 0.34);
+
+  /* Motion: mirrored by `ease` in src/lib/motion.ts. */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-cinematic: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --animate-rise: rise 1s var(--ease-out-soft) both;
+  --animate-scan: scan 1.8s var(--ease-cinematic) infinite;
+  --animate-draw: draw 2.2s var(--ease-out-soft) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.5em);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes scan {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(calc(var(--scan-distance, 100%) - 100%));
+    }
+  }
+}
