@@ -68,7 +68,21 @@ app → features → components, lib, config, server
 ### Gemini: `src/server/gemini.ts`
 
 - `getGemini()` returns a memoized `GoogleGenAI` client built from `GEMINI_API_KEY`.
-- Phase 2 adds model IDs (one config module), prompts, and Zod-validated structured output.
+- The independent backend track implements transcription/translation followed by quoted direction
+  extraction in `src/server/directions/pipeline.ts`. Model ID defaults to `gemini-3.8-flash`;
+  requests use inline audio, bounded deadlines and strict Zod validation.
+
+### Backend contracts, APIs and ownership
+
+- `src/contracts/**` owns client-safe Zod contracts, source-grounding helpers and multilingual
+  fixtures. It imports no server SDK or UI code.
+- `src/app/api/**` contains thin Node route handlers; `src/server/**` owns audio validation,
+  errors, signed anonymous ownership, Firestore quotas and guide persistence.
+- User confirmation is required before saving; publication is separate and retains acknowledged
+  warnings. Public responses omit transcripts, evidence and ownership metadata.
+- No raw-audio persistence, Firebase Auth, client SDK, queue or cloud infrastructure is
+  introduced. Existing Firestore client rules continue to deny direct access.
+- Contracts, environment variables, integration examples and verification limits are in [API.md](API.md).
 
 ## Planned data flow (Phases 1–3)
 

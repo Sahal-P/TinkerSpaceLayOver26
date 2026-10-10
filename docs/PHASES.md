@@ -1,5 +1,20 @@
 # Implementation phases
 
+## Independent Gemini / Firebase backend track
+
+Explicitly authorized separately from the UI phase. No UI, Three.js, recording component or
+client Firebase SDK changes are included.
+
+- [x] Shared strict Zod contracts and multilingual integration fixtures
+- [x] Bounded audio validation and two-stage source-grounded Gemini pipeline
+- [x] Confirmed guide creation, retrieval, publication, revocation and deletion
+- [x] Signed anonymous ownership, origin protection, atomic quotas and idempotent creation
+- [x] Mocked unit/route tests and backend environment/API documentation
+- [ ] Native-speaker live audio evaluation and real credential/IAM smoke test
+- [ ] Integration approval and UI view-model wiring
+
+Contracts and remaining limitations: [API.md](API.md).
+
 Every phase ends with `pnpm lint && pnpm typecheck && pnpm test && pnpm build` passing, docs updated,
 and explicit approval before the next phase starts. Open decisions are resolved at phase kickoff.
 
