@@ -11,6 +11,7 @@ import { ApiError, requestAborted } from "@/server/api/errors";
 import type { ValidatedAudio } from "@/server/audio";
 import { readGeminiEnv } from "@/server/env";
 import { getGemini } from "@/server/gemini";
+import { modelJsonSchema } from "./model-json-schema";
 
 export const PROCESSING_DEADLINE_MS = 45000;
 const transcriptionModelSchema = z.strictObject({
@@ -158,7 +159,7 @@ export async function extractDirections(audio: ValidatedAudio, requestSignal: Ab
         const response = await abortable(getGemini().models.generateContent({
           model, contents: [{ role: "user", parts }],
           config: {
-            systemInstruction, responseMimeType: "application/json", responseJsonSchema: z.toJSONSchema(schema),
+            systemInstruction, responseMimeType: "application/json", responseJsonSchema: modelJsonSchema(schema),
             maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
             abortSignal: signal, httpOptions: { timeout: Math.min(20000, expiresAt - Date.now()), retryOptions: { attempts: 1 } },
           },
@@ -180,6 +181,9 @@ export async function extractDirections(audio: ValidatedAudio, requestSignal: Ab
         const status = error instanceof GeminiApiError ? error.status : undefined;
         if ([408, 504].includes(status ?? 0) || (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name))) throw requestAborted();
         if (status === 429) throw new ApiError("upstream_quota_exceeded", 503, "The AI service quota is temporarily exhausted.", true, 60);
+        if ([400, 401, 403, 404].includes(status ?? 0)) {
+          throw new ApiError("service_misconfigured", 503, "The AI service configuration needs attention.");
+        }
         if ([500, 502, 503, 504].includes(status ?? 0) && !retried && expiresAt - Date.now() > 2000) {
           retried = true;
           await abortable(new Promise<void>((resolve) => setTimeout(resolve, 250)), signal);

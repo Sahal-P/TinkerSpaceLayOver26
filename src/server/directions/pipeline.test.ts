@@ -88,6 +88,14 @@ describe("Gemini boundary, quotas, and cancellation", () => {
     await expect(extractDirections(audio, new AbortController().signal)).rejects.toMatchObject({ code: "invalid_model_output" });
     expect(generate).toHaveBeenCalledTimes(1);
   });
+  it("enforces output array limits even though the provider schema omits expansion bounds", async () => {
+    const { transcription, extraction } = modelFixture(englishFixture);
+    const first = extraction.steps[0];
+    if (!first) throw new Error("Fixture missing");
+    generate.mockResolvedValueOnce(response(transcription)).mockResolvedValueOnce(response({ ...extraction, steps: Array.from({ length: 41 }, () => first) }));
+    await expect(extractDirections(audio, new AbortController().signal)).rejects.toMatchObject({ code: "invalid_model_output" });
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
   it("does not use an incorrect hint to override language detection", async () => {
     const { transcription } = modelFixture(englishFixture);
     transcription.languages = [{ code: "fr", confidence: "high" }];
@@ -109,6 +117,11 @@ describe("Gemini boundary, quotas, and cancellation", () => {
     await expect(extractDirections(audio, new AbortController().signal)).rejects.toMatchObject({ code: "audio_unprocessable" });
     generate.mockReset().mockRejectedValue(new GeminiApiError({ status: 429, message: "secret-key and raw audio" }));
     await expect(extractDirections(audio, new AbortController().signal)).rejects.toMatchObject({ code: "upstream_quota_exceeded", status: 503, retryAfter: 60 });
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+  it.each([400, 401, 403, 404])("does not present permanent provider %s failures as retryable outages", async (status) => {
+    generate.mockRejectedValue(new GeminiApiError({ status, message: "private provider details and secret" }));
+    await expect(extractDirections(audio, new AbortController().signal)).rejects.toMatchObject({ code: "service_misconfigured", status: 503, retryable: false });
     expect(generate).toHaveBeenCalledTimes(1);
   });
   it("retries at most once across both stages, with SDK retries disabled", async () => {
