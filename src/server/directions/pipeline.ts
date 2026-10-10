@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { ApiError as GeminiApiError, ThinkingLevel } from "@google/genai";
+import { ThinkingLevel } from "@google/genai";
 import { z } from "zod";
 
 import { confidenceSchema, directionSchema, guideDraftSchema, languageCodeSchema, MAX_GUIDE_BYTES, type GuideDraft, type Step } from "@/contracts/guide";
@@ -12,7 +12,8 @@ import type { ValidatedAudio } from "@/server/audio";
 import { readGeminiEnv } from "@/server/env";
 import { getGemini } from "@/server/gemini";
 import { modelJsonSchema } from "./model-json-schema";
-import { rejectedOutput, type DiagnosticSink, type ExtractionDiagnostic } from "./diagnostics";
+import { classifyProviderFailure } from "./provider-failure";
+import { reportDiagnostic, rejectedOutput, type DiagnosticSink, type ExtractionDiagnostic } from "./diagnostics";
 
 export const PROCESSING_DEADLINE_MS = 45000;
 const transcriptionModelSchema = z.strictObject({
@@ -197,20 +198,30 @@ export async function extractDirections(audio: ValidatedAudio, requestSignal: Ab
         if (!parsed.success) throw invalidOutput("invalid_structure", parsed.error.issues[0]?.path ?? []);
         return parsed.data;
       } catch (error) {
-        if (signal.aborted) throw requestAborted();
-        if (error instanceof ApiError) throw error;
-        const status = error instanceof GeminiApiError ? error.status : undefined;
-        if ([408, 504].includes(status ?? 0) || (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name))) throw requestAborted();
-        if (status === 429) throw new ApiError("upstream_quota_exceeded", 503, "The AI service quota is temporarily exhausted.", true, 60);
-        if ([400, 401, 403, 404].includes(status ?? 0)) {
-          throw new ApiError("service_misconfigured", 503, "The AI service configuration needs attention.");
+        if (signal.aborted) {
+          reportDiagnostic(requestSignal.aborted ? "request_cancelled" : "processing_deadline", stage, [], diagnose);
+          throw requestAborted();
         }
-        if ([500, 502, 503, 504].includes(status ?? 0) && !retried && expiresAt - Date.now() > 2000) {
+        if (error instanceof ApiError) throw error;
+        const failure = classifyProviderFailure(error);
+        const reason: ExtractionDiagnostic["reason"] = failure.kind === "timeout" ? "provider_timeout"
+          : failure.kind === "quota" ? "provider_quota" : failure.kind === "configuration" ? "provider_configuration"
+          : failure.kind === "network" ? "provider_network" : failure.kind === "unknown" ? "provider_unknown"
+          : failure.status === 503 ? "provider_http_503" : failure.status === 502 ? "provider_http_502"
+          : failure.status === 500 ? "provider_http_500" : "provider_unavailable";
+        reportDiagnostic(reason, stage, [], diagnose);
+        if (failure.kind === "timeout") throw new ApiError("request_timeout", 504, "Gemini did not finish in time. Your clip is still available to retry.", true);
+        if (failure.kind === "quota") throw new ApiError("upstream_quota_exceeded", 503, "Gemini quota is temporarily exhausted. Keep this clip and retry after the cooldown.", true, 60);
+        if (failure.kind === "configuration") throw new ApiError("service_misconfigured", 503, "The AI service configuration needs attention.");
+        const retryDelayMs = 1000;
+        const transient = [500, 502, 503].includes(failure.status ?? 0) || failure.kind === "network";
+        if (transient && !retried && expiresAt - Date.now() > retryDelayMs + 2000) {
           retried = true;
-          await abortable(new Promise<void>((resolve) => setTimeout(resolve, 250)), signal);
+          await abortable(new Promise<void>((resolve) => setTimeout(resolve, retryDelayMs)), signal);
           continue;
         }
-        throw new ApiError("upstream_unavailable", 503, "The AI service is temporarily unavailable.", true, 30);
+        if (failure.kind === "network") throw new ApiError("upstream_network_error", 503, "The server could not connect to Gemini. Your clip is still available; retry shortly.", true, 30);
+        throw new ApiError("upstream_unavailable", 503, "Gemini could not complete this request. Your clip is still available; wait and retry.", true, 30);
       }
     }
   }

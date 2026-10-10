@@ -8,6 +8,7 @@ vi.mock("./service", () => ({ synthesizeSpeech: state.audio, translateNarration:
 import { POST as audio } from "@/app/api/speech/route";
 import { POST as translate } from "@/app/api/speech/translate/route";
 import { viewerFromRequest } from "@/server/session";
+import { SpeechOutputError } from "./diagnostics";
 const origin = "http://localhost:3000";
 function request(body: unknown, cookie?: string, from = origin) {
   return new Request(origin + "/api/speech", { method: "POST", headers: { Origin: from, "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(body) });
@@ -50,5 +51,17 @@ describe("private speech routes", () => {
     state.translation.mockResolvedValue({ instruction: "बस स्टॉप से शुरू करें।", landmark: "bus stop", distance: null, warnings: [] });
     const response = await translate(request({ ...narrationInput(englishFixture.steps[0], []), language: "hi" }));
     expect(translationResponseSchema.parse(await response.json()).data.language).toBe("hi");
+  });
+  it("logs only fixed rejection metadata and distinguishes translation from generated audio", async () => {
+    const logger = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      state.translation.mockRejectedValue(new SpeechOutputError("translation", "negation_missing", ["instruction", "private transcript"]));
+      const response = await translate(request({ ...narrationInput(englishFixture.steps[0], []), language: "ml" }));
+      const body = await response.json();
+      expect(body).toMatchObject({ error: { code: "invalid_speech_output", message: "The translated voice text could not be validated." } });
+      expect(JSON.parse(logger.mock.calls[0]?.[0])).toEqual({ event: "speech_output_rejected", requestId: body.requestId, stage: "translation", reason: "negation_missing", path: ["instruction", "field"] });
+      expect(JSON.stringify(logger.mock.calls)).not.toContain("private transcript");
+      expect(body).not.toHaveProperty("diagnostic");
+    } finally { logger.mockRestore(); }
   });
 });

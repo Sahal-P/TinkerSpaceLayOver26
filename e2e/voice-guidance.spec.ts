@@ -55,6 +55,24 @@ test("voice failure does not advance the guide or substitute another engine", as
   await expect(page.getByRole("heading", { name: /Start/ })).toBeVisible();
 });
 
+test("Malayalam narration omits review warnings while keeping them visible", async ({ page }) => {
+  await speechRoutes(page);
+  const spoken: string[] = [];
+  page.on("request", request => {
+    if (request.url().endsWith("/api/speech")) spoken.push(request.postDataJSON().text);
+  });
+  await demoGuide(page);
+  await page.getByRole("combobox", { name: "Voice language" }).selectOption("ml");
+  await page.getByRole("button", { name: "Turn on voice guidance" }).click();
+  await expect(page.getByText("Translated voice text", { exact: true })).toBeVisible();
+  await page.getByText("Translated voice text", { exact: true }).click();
+  await expect(page.getByText("bus stop ൽ നിന്ന് തുടങ്ങുക.", { exact: false })).toBeVisible();
+  expect(spoken).toHaveLength(1);
+  expect(spoken[0]).toContain("തുടങ്ങുക");
+  expect(spoken.join(" ")).not.toMatch(/Not certain|Confirm.*speaker|heading.*specified/);
+  await expect(page.getByRole("list", { name: "Route warnings" })).toBeVisible();
+});
+
 test("live processing has an indeterminate loader and removes it on cancellation", async ({ page }) => {
   await page.route("**/api/**", route => route.abort());
   await page.route("**/api/directions/extract", async route => { await new Promise(resolve => setTimeout(resolve, 5000)); await route.fulfill({ json: { data: englishFixture, requestId: randomUUID() } }).catch(() => {}); });

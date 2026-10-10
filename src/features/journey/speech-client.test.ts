@@ -41,4 +41,19 @@ describe("session speech requests and memory cache", () => {
     await expect(prepareNarration(input, "en", controller.signal)).rejects.toMatchObject({ name: "AbortError" });
     expect(fetcher).not.toHaveBeenCalled();
   });
+  it("never sends generated review warnings to translation or speech", async () => {
+    const warned = { ...input, step: { ...input.step, instruction: "Maybe turn left.", warnings: ["Not certain. Confirm with the speaker."] }, routeWarnings: ["The heading was not specified."] };
+    const bodies: unknown[] = [];
+    const fetcher = vi.fn(async (url: string, options: RequestInit) => {
+      bodies.push(JSON.parse(String(options.body)));
+      return url.endsWith("translate") ? Response.json({ data: { language: "ml", sections: {
+        instruction: "ഒരുപക്ഷേ ഇടത്തേക്ക് തിരിയുക.", landmark: null, distance: null, warnings: ["Not certain"],
+      } }, requestId: randomUUID() }) : audioResponse();
+    });
+    vi.stubGlobal("fetch", fetcher);
+    await prepareNarration(warned, "ml", new AbortController().signal);
+    expect(JSON.stringify(bodies)).not.toContain("Not certain"); expect(JSON.stringify(bodies)).not.toContain("heading");
+    expect(JSON.stringify(bodies)).toContain("ഒരുപക്ഷേ");
+    expect(warned.step.warnings).toEqual(["Not certain. Confirm with the speaker."]);
+  });
 });

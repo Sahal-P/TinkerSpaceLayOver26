@@ -4,6 +4,7 @@ import { dataResponse, handleApi, readJson, requireSameOrigin } from "@/server/a
 import { attachViewerCookie, newViewer, ownerKey, viewerFromRequest, type VerifiedViewer } from "@/server/session";
 import { enforceRateLimit } from "@/server/rate-limit";
 import { synthesizeSpeech, translateNarration } from "./service";
+import { SpeechOutputError } from "./diagnostics";
 
 export async function speechHandler(request: Request, kind: "audio" | "translation"): Promise<Response> {
   let viewer: VerifiedViewer | undefined;
@@ -13,11 +14,16 @@ export async function speechHandler(request: Request, kind: "audio" | "translati
     const input = kind === "audio" ? await readJson(request, speechRequestSchema) : await readJson(request, translationRequestSchema);
     viewer = viewerFromRequest(request) ?? newViewer();
     await enforceRateLimit("speech", viewer);
-    if ("text" in input) {
-      const audio = await synthesizeSpeech(input.text, input.language, ownerKey(viewer), signal);
-      return new Response(Uint8Array.from(audio), { headers: { "Content-Type": "audio/wav" } });
+    try {
+      if ("text" in input) {
+        const audio = await synthesizeSpeech(input.text, input.language, ownerKey(viewer), signal);
+        return new Response(Uint8Array.from(audio), { headers: { "Content-Type": "audio/wav" } });
+      }
+      return dataResponse({ language: input.language, sections: await translateNarration(input, input.language, ownerKey(viewer), signal) }, requestId);
+    } catch (error) {
+      if (error instanceof SpeechOutputError) console.warn(JSON.stringify({ event: "speech_output_rejected", requestId, ...error.diagnostic }));
+      throw error;
     }
-    return dataResponse({ language: input.language, sections: await translateNarration(input, input.language, ownerKey(viewer), signal) }, requestId);
   });
   return viewer ? attachViewerCookie(response, viewer) : response;
 }

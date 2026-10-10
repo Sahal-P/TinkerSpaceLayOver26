@@ -82,11 +82,18 @@ request IDs. The client error envelope is unchanged. Explicit reach inflections 
 evidence; negated wording does not. The extraction prompt avoids inferred straight/start labels
 for instructions with unspecified heading, preserving their quoted facts and review warnings.
 
+Provider diagnostics distinguish known HTTP 500/502/503, quota/configuration failures, transport
+timeouts/connections, unknown exceptions and cancellation/deadline events. A fixed-field classifier
+inspects at most four cause levels and never exposes their content. The single transient retry uses
+a one-second backoff within the original deadlines; all other client retries remain user-triggered.
+Service/timeout headlines and the visible cooldown keep errors from implying a defective recording.
+
 ## Guide voice guidance
 
 `contracts/speech.ts` derives narration fields from canonical step fields. Guide voice is opt-in,
 English by default, follows manually selected steps, and never advances the route. It reads the
-instruction, existing landmark/distance and deduplicated step/route warnings. Missing details remain
+instruction and existing landmark/distance. Generated step/route review warnings remain on screen
+and are excluded from translation, audio and translated narration previews; spoken hedges remain. Missing details remain
 null. English route cards stay unchanged; Hindi/Malayalam voice translations have an expandable preview.
 Landmark names, quantity literals and the distance section stay verbatim rather than being inferred.
 Translation guards check structure, nulls, warning alignment, quantities, turn/alternative wording, negation and uncertainty
@@ -94,8 +101,14 @@ markers; these conservative checks can reject valid translations and do not prov
 Native-speaker review is still required. Demo narration calls Gemini only after opt-in.
 
 Server-only speech endpoints use `getGemini()` and the existing signed session/origin protections.
-Translation uses the structured-output model; speech uses `GEMINI_TTS_MODEL`, prebuilt Kore and
-`store:false`. Binary WAV is inspected, including very short speech clips; recording uploads retain
+Translation uses the structured-output model; speech uses the approved
+`gemini-2.5-flash-preview-tts` through `models.generateContent`, audio-only output and prebuilt Kore.
+The model detects the translated language automatically; a concise verbatim-read prompt supplies
+a language cue. Its mono 24 kHz signed little-endian PCM receives a WAV header without altering samples; malformed
+format, base64, sample boundaries and incomplete model output fail closed. Cache revision 2 prevents
+reusing old narration that included generated warnings. Malayalam guards recognize suffix negation
+and spoken hedges; Hindi guards include common nasal spellings. Fixed speech diagnostics distinguish
+translation safeguards from synthesis failures without text, audio, credentials or provider errors. Binary WAV is inspected, including very short speech clips; recording uploads retain
 the two-second minimum. Provider calls have a 45-second deadline and no automatic retry.
 
 The browser uses one reusable audio element, lossless 600-character chunks, attempt identities,

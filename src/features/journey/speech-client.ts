@@ -13,7 +13,7 @@ const pending = new Map<string, { work: Promise<PreparedNarration>; signal: Abor
 let bytes = 0; let epoch = 0;
 export function resetSpeechCache() { cache.clear(); pending.clear(); failures.clear(); bytes = 0; epoch++; }
 async function keyFor(input: NarrationInput, language: SpeechLanguage): Promise<string> {
-  const data = new TextEncoder().encode(JSON.stringify([1, input, language]));
+  const data = new TextEncoder().encode(JSON.stringify([2, englishNarration(input), language]));
   const hash = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -46,7 +46,9 @@ export async function prepareNarration(input: NarrationInput, language: SpeechLa
   const work = (async () => {
     let sections = englishNarration(input);
     if (language !== "en") {
-      const response = await request("/api/speech/translate", { ...input, language }, signal);
+      const response = await request("/api/speech/translate", {
+        step: { ...input.step, warnings: [] }, routeWarnings: [], language,
+      }, signal);
       let value: unknown; try { value = await response.json(); } catch { throw new VoiceError("The translated narration could not be validated."); }
       const parsed = translationResponseSchema.safeParse(value);
       if (!parsed.success || parsed.data.data.language !== language) throw new VoiceError("The translated narration could not be validated.");

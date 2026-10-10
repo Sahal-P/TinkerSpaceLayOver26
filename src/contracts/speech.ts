@@ -27,19 +27,20 @@ export const translationResponseSchema = z.strictObject({
 export const speechRequestSchema = z.strictObject({ text: z.string().trim().min(1).max(600), language: speechLanguageSchema });
 export { apiErrorSchema as speechErrorSchema };
 
-/** Speak facts once as sections, and always preserve both step and route warnings. */
+/** Narrate route facts and spoken hedges; generated review warnings stay on screen. */
 export function englishNarration(input: NarrationInput): NarrationSections {
   return narrationSectionsSchema.parse({
     instruction: input.step.instruction,
     landmark: input.step.landmark.label,
     distance: input.step.distance.meters !== null ? `${input.step.distance.meters} meters`
       : input.step.distance.spoken,
-    warnings: [...new Set([...input.routeWarnings, ...input.step.warnings])],
+    warnings: [],
   });
 }
 export function narrationText(sections: NarrationSections): string {
-  return [sections.instruction, sections.landmark, sections.distance, ...sections.warnings]
-    .filter((part) => part !== null).join(". ");
+  return [sections.instruction, sections.landmark, sections.distance]
+    .filter((part) => part !== null)
+    .reduce((text, part) => text ? text + (/[.!?।]$/.test(text.trimEnd()) ? " " : ". ") + part : part, "");
 }
 /** Lossless bounded pieces; never cut a surrogate pair. */
 export function speechChunks(text: string): string[] {

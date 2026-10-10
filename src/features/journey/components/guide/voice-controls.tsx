@@ -27,9 +27,9 @@ export function VoiceControls({ current, next, demo }: { current: NarrationInput
         ) : null}
       </div>
       <p className="mt-2 text-xs text-ink-muted" role="status">
-        {voice.status === "loading" ? "Preparing voice guidance…" : voice.status === "playing" ? "Reading this step." : voice.status === "blocked" ? "Your browser needs a tap to play audio." : voice.status === "paused" ? "Voice paused while the page was hidden." : "Enable voice to read each selected step. Navigation stays manual."}
+        {voice.status === "loading" ? "Preparing voice guidance…" : voice.status === "playing" ? "Reading this step." : voice.status === "blocked" ? "Your browser needs a tap to play audio." : voice.status === "paused" ? "Voice paused while the page was hidden." : voice.enabled ? "Voice is on. Select a step or replay it. Navigation stays manual." : "Enable voice to read each selected step. Navigation stays manual."}
       </p>
-      {!voice.enabled ? <p className="mt-2 text-xs text-ink-muted">{demo ? "Demo narration calls Google Gemini when enabled." : "Voice sends this step and its warnings to Google Gemini."} Generated clips stay in session memory.</p> : null}
+      {!voice.enabled ? <p className="mt-2 text-xs text-ink-muted">{demo ? "Demo narration calls Google Gemini when enabled." : "Voice sends this step to Google Gemini."} Review warnings stay on screen. Generated clips stay in session memory.</p> : null}
       {voice.error ? <div role="alert" className="mt-3 text-sm"><p>{voice.error.message}</p>{voice.error.requestId ? <p className="mt-1 break-all font-mono text-xs">Request: {voice.error.requestId}</p> : null}{voice.coolingDown ? <p className="mt-1 text-xs">Wait before retrying.</p> : null}</div> : null}
       {voice.prepared && voice.language !== "en" ? <details className="mt-3 text-sm"><summary className="min-h-11 cursor-pointer py-3">Translated voice text</summary><p lang={voice.language} className="leading-relaxed">{narrationText(voice.prepared.sections)}</p><p className="mt-2 text-xs text-ink-muted">Machine translation. Names and distance references stay unchanged; check uncertain details.</p></details> : null}
     </div>

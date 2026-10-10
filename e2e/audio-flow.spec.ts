@@ -384,3 +384,19 @@ test("replacing a failed clip with an invalid file clears the old retry source",
     page.getByRole("button", { name: "Retry this clip" }),
   ).toHaveCount(0);
 });
+
+test("provider outage keeps the clip and recovers only after explicit retry", async ({ page }) => {
+  let calls = 0;
+  await page.route("**/api/directions/extract", async route => {
+    calls++;
+    await route.fulfill(calls === 1 ? { status: 503, headers: { "Retry-After": "2" }, json: { error: { code: "upstream_unavailable", message: "Gemini could not complete this request. Your clip is still available; wait and retry.", retryable: true }, requestId: randomUUID() } } : { json: { data: englishFixture, requestId: randomUUID() } });
+  });
+  await selectClip(page); await page.getByRole("button", { name: "Shape my route" }).click();
+  await expect(page.getByRole("heading", { name: "Processing is temporarily unavailable." })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Wait before retrying|Retry in/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Retry this clip", exact: true })).toBeEnabled({ timeout: 10000 });
+  expect(calls).toBe(1);
+  await page.getByRole("button", { name: "Retry this clip", exact: true }).click();
+  await expect(page.getByRole("link", { name: "Review my route" })).toBeVisible();
+  expect(calls).toBe(2);
+});

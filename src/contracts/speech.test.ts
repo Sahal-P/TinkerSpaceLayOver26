@@ -3,12 +3,13 @@ import { englishFixture, ambiguousFixture } from "./fixtures";
 import { englishNarration, narrationInput, narrationText, narrationInputSchema, speechChunks, speechRequestSchema } from "./speech";
 
 describe("canonical speech contracts", () => {
-  it("retains nulls, warnings, unknown directions and exact zero", () => {
+  it("retains nulls, unknown directions and exact zero without narrating review warnings", () => {
     const input = narrationInput(ambiguousFixture.steps[0], ambiguousFixture.warnings);
     if (!input) throw new Error("Missing fixture");
     expect(narrationInputSchema.parse(input)).toEqual(input);
     const sections = englishNarration(input);
-    expect(sections.warnings).toEqual([...new Set([...input.routeWarnings, ...input.step.warnings])]);
+    expect(sections.warnings).toEqual([]);
+    expect(input.step.warnings.length + input.routeWarnings.length).toBeGreaterThan(0);
     input.step.distance = { spoken: null, meters: null }; input.step.landmark = { spoken: null, label: null };
     expect(englishNarration(input)).toMatchObject({ landmark: null, distance: null });
     input.step.distance = { spoken: "zero meters", meters: 0 };
@@ -28,6 +29,7 @@ describe("canonical speech contracts", () => {
       expect(parts.every(part => !/^[\uDC00-\uDFFF]/.test(part))).toBe(true);
     }
     expect(speechRequestSchema.safeParse({ text: "x".repeat(601), language: "en" }).success).toBe(false);
-    expect(narrationText({ instruction: "Unknown turn", landmark: null, distance: null, warnings: ["Not sure"] })).toBe("Unknown turn. Not sure");
+    expect(narrationText({ instruction: "Maybe turn left", landmark: null, distance: null, warnings: ["Not certain. Confirm with the speaker."] })).toBe("Maybe turn left");
+    expect(narrationText({ instruction: "Turn left.", landmark: "bridge", distance: null, warnings: [] })).toBe("Turn left. bridge");
   });
 });

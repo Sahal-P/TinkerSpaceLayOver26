@@ -191,7 +191,7 @@ No TTL billing feature or cleanup infrastructure is enabled.
 | 422 | `invalid_audio`, `audio_too_short`, `audio_too_long`, `unsupported_language`, `no_speech`, `not_directions`, `audio_unprocessable`, `confirmation_required` |
 | 429 | `rate_limited` |
 | 502 | `invalid_model_output` |
-| 503 | `service_misconfigured`, `storage_unavailable`, `upstream_quota_exceeded`, `upstream_unavailable` |
+| 503 | `service_misconfigured`, `storage_unavailable`, `upstream_quota_exceeded`, `upstream_unavailable`, `upstream_network_error` |
 | 504 | `request_timeout` |
 | 500 | `internal_error` (curated message only) |
 
@@ -415,7 +415,7 @@ saved/published, and no raw transcript/provider error was written to the verific
 ## Guide voice APIs
 
 Voice is off by default and separate from recording consent. The Guide explains that enabling it
-sends the current step and warnings to Google Gemini. The reviewed English card remains canonical;
+sends the current step to Google Gemini. Generated review warnings remain visible and are not narrated. The reviewed English card remains canonical;
 translated narration is presentation data only. The demo may use these endpoints after explicit
 voice enablement; opening the demo alone does not call Gemini.
 
@@ -427,7 +427,7 @@ JSON: `{ step, routeWarnings, language }`. `step` includes only the canonical ed
 `instruction`, `direction`, `incline`, `landmark`, `distance`, plus `warnings`; no transcript,
 evidence, anchors, coordinates, session ID or provider settings are accepted. Languages: en/ml/hi.
 Returns `{ data: { language, sections }, requestId }`, where sections contains `instruction`,
-nullable `landmark`, nullable `distance`, and ordered `warnings`. English needs no model translation.
+nullable `landmark`, nullable `distance`, and an empty `warnings` array. The warnings field remains for wire compatibility; narration omits generated step/route warnings. English needs no model translation.
 
 Names, distance references, numeric tokens and English number-word quantities remain verbatim
 inside translated text. This deliberate policy protects quantities and names at the cost of fully
@@ -444,8 +444,11 @@ error envelope. The client validates MIME, the streamed 4 MiB limit, container, 
 before playback. Very short narration is allowed; recording uploads still require 2–120 seconds.
 Generated clips cannot exceed 120 seconds or 4 MiB. A prepared step cannot exceed 16 MiB total.
 
-The server uses `getGemini().interactions.create()`, `GEMINI_TTS_MODEL` (default
-`gemini-3.8-flash-tts`), prebuilt Kore and `store:false`. Model/voice/style are server controlled.
+The server uses `getGemini().models.generateContent()`, `GEMINI_TTS_MODEL` (default and
+only accepted value `gemini-2.5-flash-preview-tts`), audio-only output and prebuilt Kore.
+Returned mono 24 kHz signed 16-bit little-endian PCM is strictly validated and wrapped in WAV
+without changing the samples. Unexpected MIME, rate/channels, malformed base64, partial samples,
+blocked/truncated/non-STOP output and silent/corrupt audio fail validation. No model substitution occurs. Model/voice/style are server controlled.
 There is no voice cloning, browser speech engine fallback or new cloud resource. Translation and
 TTS are bounded to 45 seconds per request within a 60-second route budget; SDK automatic retries
 are disabled. Quota returns safe retryable `upstream_quota_exceeded`; permanent provider failures
@@ -461,7 +464,9 @@ No protection bypass occurs when Firestore is unavailable.
 
 ### Playback and memory caching
 
-The Guide toggle reads the active step and its warnings. It does not read site chrome, original
+The Guide toggle reads the active instruction and existing landmark/distance. Generated review
+warnings, including “Not certain” and “confirm with the speaker” annotations, remain on screen.
+Hedges and negation within the actual instruction remain spoken. It does not read site chrome, original
 transcript quotes or confidence labels, and it never changes the current step. Step selection by
 buttons, keyboard, swipe or scene cancels obsolete playback/requests. Language changes regenerate
 presentation narration. Errors preserve text navigation. Browser autoplay rejection exposes Tap
@@ -478,7 +483,9 @@ Prefetch prepares only the next step after current audio finishes, and stops on 
 Add `GEMINI_TTS_MODEL` only in server configuration; it is optional and validated lazily in
 `src/server/env.ts`. Existing `GEMINI_API_KEY`, session/origin settings and ADC are reused.
 No secrets enter client bundles. See `src/server/speech/VERIFICATION.md` for the bounded live
-checks: Malayalam uncertainty translation failed validation; physical Safari remains pending.
+checks and follow-up: speech rejection diagnostics contain only a request ID, fixed stage/reason
+codes and whitelisted schema paths. Translation failures and generated-audio failures have distinct
+safe messages. Physical Safari/native-speaker acoustic review remain pending.
 
 ## Targeted Hindi clip correction
 
@@ -492,3 +499,27 @@ whitelisted schema path. Reasons distinguish truncation, invalid JSON/structure,
 direction/incline, distance/landmark, language/transcript and guide bounds. No model text, audio,
 Zod input values or provider exceptions are logged; diagnostics do not enter the client envelope.
 See [HINDI-CLIP-FIX.md](HINDI-CLIP-FIX.md) for the bounded eight-attempt ledger and accuracy limits.
+
+## Provider failure recovery
+
+Extraction classifies fixed SDK status/name/code fields and bounded cause chains. Wrapped quota
+errors remain quota errors; transport timeouts remain `request_timeout`; known connection failures
+return retryable `upstream_network_error`. Unclassified exceptions remain safely unavailable without
+asserting a specific provider cause. Only fixed diagnostic reason codes, stage/schema paths and
+request IDs enter logs. Raw errors and causes never enter the response or log.
+
+One retry across both model stages is retained for 500/502/503 and recognized transient connection
+failures, with a one-second backoff and remaining-deadline check. SDK retries stay disabled. Quota,
+configuration failures, timeout and invalid model output do not receive an immediate automatic retry.
+The 20-second per-call / 45-second processing / 60-second route/client budgets are unchanged.
+This follows Google's [backoff recommendation](https://ai.google.dev/gemini-api/docs/troubleshooting).
+
+Processing now identifies service failure or timeout separately from a clip validation problem.
+The existing retained clip can be retried explicitly after a visible Retry-After countdown; no
+automatic client retry or fixture fallback occurs. The countdown timer stops when it expires.
+
+On 2026-10-11 the user reported successful recovery after an unavailable response. Historical
+request `0b47724d-8f7e-47f7-bce6-bf09283bd6b6` had no provider diagnostic, so its precise cause
+is unknown. No new agent live extraction was made beyond the previous eight-attempt batch.
+Automated recovery tests mock provider failures and browser API responses; they cannot establish
+current Google uptime or eliminate future external failures.

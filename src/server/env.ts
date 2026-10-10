@@ -10,7 +10,7 @@ const geminiEnvSchema = z.object({
 });
 
 const speechEnvSchema = z.object({
-  GEMINI_TTS_MODEL: z.string().trim().min(1).max(100).default("gemini-3.8-flash-tts"),
+  GEMINI_TTS_MODEL: z.literal("gemini-2.5-flash-preview-tts").default("gemini-2.5-flash-preview-tts"),
 });
 export function readSpeechEnv(source: EnvSource = process.env) {
   return parseEnv(speechEnvSchema, source, "Speech");

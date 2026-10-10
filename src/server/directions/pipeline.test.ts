@@ -175,6 +175,36 @@ describe("Gemini boundary, quotas, and cancellation", () => {
     await expect(extractDirections(audio, new AbortController().signal)).rejects.toMatchObject({ code: "upstream_unavailable" });
     expect(generate).toHaveBeenCalledTimes(3);
   });
+  it("classifies nested connection timeouts instead of calling them service outages", async () => {
+    generate.mockRejectedValue(new TypeError("fetch failed", { cause: { code: "UND_ERR_CONNECT_TIMEOUT" } }));
+    const diagnostics = vi.fn();
+    await expect(extractDirections(audio, new AbortController().signal, diagnostics)).rejects.toMatchObject({ code: "request_timeout", status: 504 });
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(diagnostics).toHaveBeenCalledWith({ reason: "provider_timeout", stage: "transcription", path: [] });
+  });
+  it("waits one second before its sole transient retry and preserves private error diagnostics", async () => {
+    vi.useFakeTimers();
+    const { transcription, extraction } = modelFixture(englishFixture);
+    generate.mockRejectedValueOnce(new GeminiApiError({ status: 503, message: "secret provider details" }))
+      .mockResolvedValueOnce(response(transcription)).mockResolvedValueOnce(response(extraction));
+    const diagnostics = vi.fn(); const result = extractDirections(audio, new AbortController().signal, diagnostics);
+    await vi.advanceTimersByTimeAsync(999); expect(generate).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1); await expect(result).resolves.toHaveProperty("steps");
+    expect(generate).toHaveBeenCalledTimes(3);
+    expect(diagnostics).toHaveBeenCalledWith({ reason: "provider_http_503", stage: "transcription", path: [] });
+    expect(JSON.stringify(diagnostics.mock.calls)).not.toContain("secret");
+  });
+  it("does not retry connection errors repeatedly or collapse them into overload", async () => {
+    vi.useFakeTimers(); generate.mockRejectedValue(new TypeError("fetch failed", { cause: { code: "ECONNRESET" } }));
+    const result = extractDirections(audio, new AbortController().signal);
+    const rejected = expect(result).rejects.toMatchObject({ code: "upstream_network_error", status: 503, retryAfter: 30 });
+    await vi.advanceTimersByTimeAsync(1000); await rejected; expect(generate).toHaveBeenCalledTimes(2);
+  });
+  it("recognizes wrapped quota errors and avoids an immediate retry", async () => {
+    generate.mockRejectedValue(new Error("private", { cause: { status: 429 } }));
+    await expect(extractDirections(audio, new AbortController().signal)).rejects.toMatchObject({ code: "upstream_quota_exceeded", retryAfter: 60 });
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
   it("enforces the processing deadline even for a promise that ignores abortSignal", async () => {
     const controller = new AbortController();
     vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);

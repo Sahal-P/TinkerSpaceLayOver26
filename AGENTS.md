@@ -17,7 +17,9 @@ Hindi, English, or mixed audio, extracts a canonical draft, and reviews it into 
 An explicitly selected English demo preserves the Lisbon scene. Save/publish APIs are installed,
 but their UI, public guide pages, and real Lens analysis are deferred. Local keyless ADC and Firestore
 access are verified. Opt-in Gemini guide narration supports English, Hindi and Malayalam with
-session memory caching; the processing loader covers upload and indeterminate processing.
+session memory caching; narration omits generated review warnings and preserves spoken hedges.
+The approved Gemini API model is `gemini-2.5-flash-preview-tts`; no Cloud TTS/billing change is made.
+The processing loader covers upload and indeterminate processing.
 Native speech/iPhone verification remains an acceptance prerequisite. Implement only the approved phase.
 
 ## Ownership

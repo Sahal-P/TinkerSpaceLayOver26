@@ -21,7 +21,11 @@ export function ProcessingScreen() {
   const retryAt = state.extraction.error?.retryAt ?? 0;
   useEffect(() => {
     if (!retryAt) return;
-    const timer = setInterval(() => setNow(Date.now()), 250);
+    const timer = setInterval(() => {
+      const next = Date.now();
+      setNow(next);
+      if (next >= retryAt) clearInterval(timer);
+    }, 250);
     return () => clearInterval(timer);
   }, [retryAt]);
   if (!state.clip && !state.draft && state.extraction.status === "idle")
@@ -29,6 +33,8 @@ export function ProcessingScreen() {
   const done = state.extraction.status === "success" && state.draft;
   const error = state.extraction.error;
   const pending = ["uploading", "processing"].includes(state.extraction.status);
+  const serviceFailure = error && ["upstream_unavailable", "upstream_network_error", "upstream_quota_exceeded", "storage_unavailable", "service_misconfigured"].includes(error.code);
+  const timedOut = error?.code === "request_timeout";
   return (
     <Container
       size="lg"
@@ -40,7 +46,7 @@ export function ProcessingScreen() {
             done
               ? "Your directions are ready."
               : error
-                ? "The clip needs another try."
+                ? serviceFailure ? "Processing is temporarily unavailable." : timedOut ? "Processing took too long." : "The clip needs another try."
                 : "Shaping your directions."
           }
         >
@@ -112,7 +118,7 @@ export function ProcessingScreen() {
                   disabled={retryAt > now || !state.consent}
                   onClick={() => startExtraction()}
                 >
-                  {retryAt > now ? "Wait before retrying" : "Retry this clip"}
+                  {retryAt > now ? now > 0 ? `Retry in ${Math.ceil((retryAt - now) / 1000)}s` : "Wait before retrying" : "Retry this clip"}
                 </Button>
               ) : null}
               <Link

@@ -100,7 +100,11 @@ Follow [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
 - [x] Bounded browser/server session caches, cancellation, next-step prefetch and atomic speech limits
 - [x] Live upload/processing spinner and honest indeterminate progress; reduced-motion support
 - [x] Bounded live speech checks: English, Hindi and Malayalam clear; English/Hindi uncertainty
-- [ ] Native-speaker review and Malayalam uncertainty translation follow-up
+- [x] Omit generated review warnings from narration while preserving spoken hedges
+- [x] Adopt the user-selected Gemini API `gemini-2.5-flash-preview-tts` with validated PCM-to-WAV output
+- [x] Speech stage/reason diagnostics and Malayalam inflected-negation regression coverage
+- [x] Live selected-model English WAV and actual Chrome Malayalam guide playback
+- [ ] Native-speaker acoustic review, Malayalam uncertain sample and live Hindi rerun
 - [ ] Physical Safari playback and autoplay verification
 
 See `src/server/speech/VERIFICATION.md` for safe live findings and limitations.
@@ -115,6 +119,15 @@ See `src/server/speech/VERIFICATION.md` for safe live findings and limitations.
 
 See [HINDI-CLIP-FIX.md](HINDI-CLIP-FIX.md). Timeouts remain safe retryable provider errors; no
 deadline or limit was increased.
+
+## Provider failure recovery
+
+- [x] Classify quota/configuration, transport timeout/connection and unknown failures safely
+- [x] Preserve one bounded transient retry with one-second backoff and no quota retry
+- [x] Service/timeout feedback, retained clip and visible explicit-retry countdown
+- [x] User reported successful recovery; original provider status was not recorded
+
+Provider availability remains external; no additional live extraction batch was run.
 
 ## Phase 3b: Saved and shared guides (deferred)
 

@@ -71,8 +71,9 @@ describe("readFirebaseEnv", () => {
 });
 
 describe("readSpeechEnv", () => {
-  it("uses the stable TTS default and validates lazily", () => {
-    expect(readSpeechEnv({})).toEqual({ GEMINI_TTS_MODEL: "gemini-3.8-flash-tts" });
+  it("uses the approved Gemini API TTS model and validates lazily", () => {
+    expect(readSpeechEnv({})).toEqual({ GEMINI_TTS_MODEL: "gemini-2.5-flash-preview-tts" });
     expect(() => readSpeechEnv({ GEMINI_TTS_MODEL: "x".repeat(101) })).toThrow(/GEMINI_TTS_MODEL/);
+    expect(() => readSpeechEnv({ GEMINI_TTS_MODEL: "gemini-2.5-flash-lite-preview-tts" })).toThrow(/GEMINI_TTS_MODEL/);
   });
 });

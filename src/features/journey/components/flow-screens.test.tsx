@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -197,4 +197,30 @@ it("shows an active loader throughout upload/processing without fabricating stag
   expect(screen.getByText("Shaping your directions…")).toBeDefined();
   fireEvent.click(screen.getByRole("button", { name: "Cancel pending request" }));
   expect(screen.queryByRole("progressbar")).toBeNull();
+});
+
+function ServiceFailureHarness() {
+  const { dispatch } = useJourney();
+  return <>
+    <button onClick={() => {
+      dispatch({ type: "clip/set", clip: { file: new File(["test"], "clip.wav", { type: "audio/wav" }), durationMs: 2000 }, consent: true });
+      dispatch({ type: "extraction/started", attemptId: "service" });
+      dispatch({ type: "extraction/failed", attemptId: "service", error: { code: "upstream_unavailable", message: "Gemini is unavailable.", retryable: true, requestId: null, retryAt: Date.now() + 2000 } });
+    }}>Simulate service failure</button>
+    <ProcessingScreen />
+  </>;
+}
+it("identifies a service failure, counts down and stops its timer on expiry", async () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-11T08:00:00Z"));
+  const clear = vi.spyOn(globalThis, "clearInterval");
+  try {
+    render(<JourneyProvider><ServiceFailureHarness /></JourneyProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Simulate service failure" }));
+    expect(screen.getByRole("heading", { name: "Processing is temporarily unavailable." })).toBeDefined();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(screen.getByRole("button", { name: "Retry in 1s" })).toHaveProperty("disabled", true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(screen.getByRole("button", { name: "Retry this clip" })).toHaveProperty("disabled", false);
+    expect(clear).toHaveBeenCalled();
+  } finally { clear.mockRestore(); vi.useRealTimers(); }
 });
