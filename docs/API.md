@@ -333,3 +333,23 @@ The connected owner profile now exposes Firebase Admin SDK settings for the exis
 Choosing keyless ADC setup, providing an existing credential file, or explicitly changing scope to
 a new service-account key is required before live extraction. Restart the local server after
 credential configuration. No credential contents were read or logged from Chrome.
+
+## Keyless ADC setup status
+
+The user approved local keyless ADC on 2026-10-11. Google Cloud CLI 588.0.0 is installed at
+`/Users/sahal/.local/share/google-cloud-sdk`; `~/.local/bin/gcloud` launches it. The official
+versioned archive was verified against Homebrew's version-specific SHA256. The Homebrew cask
+installer could not finish its Python virtualenv, so the SDK archive installation was used instead.
+No application dependencies or cloud resources were added for this setup.
+
+ADC sign-in requests only OpenID, account email, and Google Cloud platform scopes for
+`sahal.connect@gmail.com`, with `local-to-lens` as the quota project. This does not enable billing.
+Google requires a user-completed identity verification before authorization. No ADC credential
+file is present yet; no private key was generated. The CLI is waiting for the localhost callback.
+Google configuration directory permissions are 0700; a completed ADC file will be protected as 0600.
+OAuth URLs and callback values are kept out of chat, application logs and repository files.
+
+After the user completes Google authorization, verify ADC token acquisition and a read-only
+Firestore probe through `getDb()`, then restart the integration server and perform the bounded
+manual audio check. User-account ADC is for local development; deployment should use an attached
+runtime identity. Do not commit or copy refresh-token contents into `.env` files or documentation.
