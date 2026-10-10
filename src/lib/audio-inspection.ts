@@ -11,6 +11,7 @@ import {
   WEBM,
 } from "mediabunny";
 import { MAX_AUDIO_BYTES, MAX_AUDIO_MS, MIN_AUDIO_MS } from "@/contracts/audio";
+import { isSilentPcmPacket } from "./pcm-silence";
 export class AudioInspectionError extends Error {
   constructor(
     public readonly code:
@@ -45,7 +46,7 @@ const containerTypes: Record<string, string> = {
 export async function inspectAudioSource(
   source: Uint8Array | Blob,
   signal: AbortSignal,
-): Promise<{ mimeType: string; actualDurationMs: number }> {
+): Promise<{ mimeType: string; actualDurationMs: number; digitalSilence: boolean }> {
   const size = source instanceof Uint8Array ? source.byteLength : source.size;
   if (size === 0) throw invalidAudio();
   if (size > MAX_AUDIO_BYTES)
@@ -115,12 +116,24 @@ export async function inspectAudioSource(
         "audio_too_long",
         "Audio must last at most two minutes.",
       );
+    // Compressed silence needs decoding; do not guess from encoded bytes. For PCM,
+    // check every packet, stopping as soon as any nonzero sample is found.
+    let digitalSilence = codec.startsWith("pcm-");
+    if (digitalSilence) {
+      for await (const packet of sink.packets(firstPacket, undefined, { skipLiveWait: true })) {
+        if (inspectionSignal.aborted) break;
+        if (!isSilentPcmPacket(packet.data, codec)) {
+          digitalSilence = false;
+          break;
+        }
+      }
+    }
     if (inspectionSignal.aborted)
       throw new AudioInspectionError(
         "request_timeout",
         "Audio inspection was cancelled or timed out.",
       );
-    return { mimeType, actualDurationMs };
+    return { mimeType, actualDurationMs, digitalSilence };
   } catch (error) {
     if (inspectionSignal.aborted)
       throw new AudioInspectionError(

@@ -24,6 +24,14 @@ describe("audio validation with real container fixtures", () => {
     finally { input.dispose(); }
     expect((await inspectAudio(bytes, "audio/webm", new AbortController().signal)).actualDurationMs).toBeGreaterThanOrEqual(2000);
   });
+  it("confirms digital silence only across all PCM packets", async () => {
+    const wav = await audioFixture();
+    expect((await inspectAudio(wav, "audio/wav", new AbortController().signal)).digitalSilence).toBe(true);
+    // A signal in the final sample must prevent a false silence classification.
+    wav[wav.length - 2] = 1;
+    expect((await inspectAudio(wav, "audio/wav", new AbortController().signal)).digitalSilence).toBe(false);
+    expect((await inspectAudio(await audioFixture("webm"), "audio/webm", new AbortController().signal)).digitalSilence).toBe(false);
+  });
   it("rejects corrupt, empty, oversized, spoofed-type, and unsupported input", async () => {
     const signal = new AbortController().signal;
     await expect(inspectAudio(new Uint8Array(), "audio/wav", signal)).rejects.toMatchObject({ code: "invalid_audio" });

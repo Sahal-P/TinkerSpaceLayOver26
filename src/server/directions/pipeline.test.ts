@@ -9,7 +9,7 @@ const { generate } = vi.hoisted(() => ({ generate: vi.fn() }));
 vi.mock("@/server/gemini", () => ({ getGemini: () => ({ models: { generateContent: generate } }) }));
 import { assembleDraft, extractDirections, PROCESSING_DEADLINE_MS } from "./pipeline";
 
-const audio: ValidatedAudio = { bytes: new Uint8Array([1, 2, 3]), mimeType: "audio/wav", durationMs: 2000, actualDurationMs: 2000, consent: true, languageHint: "auto" };
+const audio: ValidatedAudio = { bytes: new Uint8Array([1, 2, 3]), mimeType: "audio/wav", durationMs: 2000, actualDurationMs: 2000, digitalSilence: false, consent: true, languageHint: "auto" };
 const response = (output: unknown) => ({ text: JSON.stringify(output), candidates: [{ finishReason: "STOP" }] });
 beforeEach(() => { generate.mockReset(); vi.stubEnv("GEMINI_API_KEY", "unit-test-key"); });
 afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -96,6 +96,8 @@ describe("Gemini boundary, quotas, and cancellation", () => {
     expect(generate).toHaveBeenCalledTimes(1);
   });
   it("stops on silence and flags non-navigation speech", async () => {
+    await expect(extractDirections({ ...audio, digitalSilence: true }, new AbortController().signal)).rejects.toMatchObject({ code: "no_speech" });
+    expect(generate).not.toHaveBeenCalled();
     generate.mockResolvedValue(response({ hasSpeech: false, languages: [], segments: [], warnings: [] }));
     await expect(extractDirections(audio, new AbortController().signal)).rejects.toMatchObject({ code: "no_speech" });
     const { transcription } = modelFixture(englishFixture);

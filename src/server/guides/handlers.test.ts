@@ -4,7 +4,7 @@ import { ambiguousFixture, englishFixture } from "@/contracts/fixtures";
 import { creationResponseSchema, extractionResponseSchema, publishResponseSchema, retrievalResponseSchema } from "@/contracts/guide";
 import { ApiError } from "@/server/api/errors";
 import { encodeViewer, newViewer, sessionCookieName, viewerFromRequest } from "@/server/session";
-import { audioRequest } from "@/server/testing/audio-fixtures";
+import { audioFixture, audioRequest } from "@/server/testing/audio-fixtures";
 import { modelFixture } from "@/server/testing/model-fixtures";
 import { FirestoreFake } from "@/server/testing/firestore-fake";
 
@@ -31,6 +31,12 @@ function request(path: string, body?: unknown, cookie?: string, idempotencyKey =
   return new Request(origin + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
 }
 const context = (id: string) => ({ params: Promise.resolve({ id }) });
+async function signalRequest(): Promise<Request> {
+  const bytes = await audioFixture();
+  // Synthetic nonzero PCM sample; semantic speech output remains an SDK mock.
+  bytes[bytes.length - 2] = 1;
+  return audioRequest({ bytes });
+}
 beforeEach(() => {
   state.db = new FirestoreFake(); state.generate.mockReset();
   vi.stubEnv("APP_ORIGIN", origin);
@@ -45,7 +51,7 @@ describe("route handler integration with mocked SDKs", () => {
     const fixture = modelFixture(englishFixture);
     state.generate.mockResolvedValueOnce({ text: JSON.stringify(fixture.transcription) })
       .mockResolvedValueOnce({ text: JSON.stringify(fixture.extraction) });
-    const extracted = await extract(await audioRequest());
+    const extracted = await extract(await signalRequest());
     expect(extracted.status).toBe(200);
     const output = extractionResponseSchema.parse(await extracted.json());
     const cookie = extracted.headers.get("Set-Cookie")?.split(";")[0];
@@ -119,9 +125,16 @@ describe("route handler integration with mocked SDKs", () => {
     expect(limited.headers.has("Retry-After")).toBe(true);
     expect(state.generate).not.toHaveBeenCalled();
   });
+  it("rejects exact digital silence before model invocation without creating a guide", async () => {
+    const rejected = await extract(await audioRequest());
+    expect(rejected.status).toBe(422);
+    expect(await rejected.json()).toMatchObject({ error: { code: "no_speech" } });
+    expect(state.generate).not.toHaveBeenCalled();
+    expect([...state.db?.documents.keys() ?? []].some((key) => key.startsWith("guides/"))).toBe(false);
+  });
   it("preserves the owner cookie after a transient failure", async () => {
     state.generate.mockRejectedValue(new ApiError("upstream_unavailable", 503, "Try again.", true));
-    const failed = await extract(await audioRequest());
+    const failed = await extract(await signalRequest());
     expect(failed.status).toBe(503);
     const cookie = failed.headers.get("Set-Cookie")?.split(";")[0];
     expect(viewerFromRequest(request("/", undefined, cookie))).not.toBeNull();

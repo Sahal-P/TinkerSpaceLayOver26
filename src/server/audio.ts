@@ -29,10 +29,8 @@ const declaredTypes: Record<string, string> = {
   "audio/flac": "audio/flac",
   "audio/x-flac": "audio/flac",
 };
-export type ValidatedAudio = AudioMetadata & {
+export type ValidatedAudio = AudioMetadata & Awaited<ReturnType<typeof inspectAudio>> & {
   bytes: Uint8Array;
-  mimeType: string;
-  actualDurationMs: number;
 };
 function invalidAudio(): ApiError {
   return new ApiError(
@@ -46,7 +44,7 @@ export async function inspectAudio(
   bytes: Uint8Array,
   declared: string,
   signal: AbortSignal,
-): Promise<{ mimeType: string; actualDurationMs: number }> {
+): Promise<Awaited<ReturnType<typeof inspectAudioSource>>> {
   const normalized =
     declaredTypes[declared.split(";")[0]?.trim().toLowerCase() ?? ""];
   if (!normalized)

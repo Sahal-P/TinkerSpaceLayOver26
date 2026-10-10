@@ -140,6 +140,8 @@ export function assembleDraft(transcription: TranscriptionModelOutput, extractio
 }
 
 export async function extractDirections(audio: ValidatedAudio, requestSignal: AbortSignal): Promise<GuideDraft> {
+  if (requestSignal.aborted) throw requestAborted();
+  if (audio.digitalSilence) throw new ApiError("no_speech", 422, "No intelligible speech was found.");
   const signal = AbortSignal.any([requestSignal, AbortSignal.timeout(PROCESSING_DEADLINE_MS)]);
   const expiresAt = Date.now() + PROCESSING_DEADLINE_MS;
   let retried = false;
