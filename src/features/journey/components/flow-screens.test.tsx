@@ -2,68 +2,178 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-
-import { GuideScreen } from "@/features/journey/components/guide/guide-screen";
-import { RecordScreen } from "@/features/journey/components/record/record-screen";
-import { ReviewScreen } from "@/features/journey/components/review/review-screen";
-import { ShareScreen } from "@/features/journey/components/share/share-screen";
-import { JourneyProvider } from "@/features/journey/journey-store";
-
+import {
+  ambiguousFixture,
+  englishFixture,
+  mixedLanguageFixture,
+} from "@/contracts/fixtures";
+import type { GuideDraft } from "@/contracts/guide";
+import { GuideScreen } from "./guide/guide-screen";
+import { RecordScreen } from "./record/record-screen";
+import { ReviewScreen } from "./review/review-screen";
+import { ShareScreen } from "./share/share-screen";
+import { LensScreen } from "./lens/lens-screen";
+import { ProcessingScreen } from "./processing/processing-screen";
+import { JourneyProvider, useJourney } from "../journey-store";
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
   usePathname: () => "/",
 }));
-
-const inFlow = (ui: ReactNode) => render(<JourneyProvider>{ui}</JourneyProvider>);
-
-describe("Record", () => {
-  it("requires consent before recording, and offers a sample", async () => {
+function Harness({
+  children,
+  fixture,
+}: {
+  children: ReactNode;
+  fixture?: GuideDraft;
+}) {
+  const { dispatch } = useJourney();
+  return (
+    <>
+      <button
+        onClick={() => {
+          if (fixture) {
+            dispatch({ type: "extraction/started", attemptId: "test" });
+            dispatch({
+              type: "extraction/succeeded",
+              attemptId: "test",
+              guide: fixture,
+              requestId: crypto.randomUUID(),
+            });
+          } else dispatch({ type: "demo/loaded" });
+        }}
+      >
+        Load test directions
+      </button>
+      <button
+        onClick={() =>
+          dispatch({ type: "route/confirmed", acknowledgeWarnings: true })
+        }
+      >
+        Confirm test directions
+      </button>
+      {children}
+    </>
+  );
+}
+function inFlow(ui: ReactNode, fixture?: GuideDraft) {
+  render(
+    <JourneyProvider>
+      <Harness fixture={fixture}>{ui}</Harness>
+    </JourneyProvider>,
+  );
+}
+describe("integrated flow boundaries", () => {
+  it("requires recording/processing consent and keeps demo explicit", () => {
     inFlow(<RecordScreen />);
-    const record = screen.getByRole("button", { name: "Start recording" });
-    expect(record).toHaveProperty("disabled", true);
-    fireEvent.click(screen.getByRole("checkbox", { name: /i asked before recording/i }));
-    expect(record).toHaveProperty("disabled", false);
-
-    fireEvent.click(screen.getByRole("button", { name: /use a sample recording/i }));
-    expect(await screen.findByRole("button", { name: /use this recording/i })).toBeDefined();
-    expect(screen.getByRole("slider", { name: /playback position/i })).toBeDefined();
+    const button = screen.getByRole("button", { name: "Start recording" });
+    expect(button).toHaveProperty("disabled", true);
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /permission to record and send/i }),
+    );
+    expect(button).toHaveProperty("disabled", false);
+    expect(
+      screen.getByRole("button", { name: "Try the demo guide" }),
+    ).toBeDefined();
+    expect(screen.queryByText(/Portugu/)).toBeNull();
   });
-});
-
-describe("Review", () => {
-  it("validates edits with readable errors", async () => {
+  it.each([
+    <ReviewScreen key="review" />,
+    <GuideScreen key="guide" />,
+    <ProcessingScreen key="processing" />,
+  ])("opens an empty flow without automatic fixtures", (ui) => {
+    inFlow(ui);
+    expect(
+      screen.getByRole("heading", { name: "Start with a recording." }),
+    ).toBeDefined();
+  });
+  it("validates an open editor and blocks confirmation until saved/cancelled", async () => {
     inFlow(<ReviewScreen />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load test directions" }),
+    );
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /remaining uncertainty/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Edit step 1" }));
     const form = await screen.findByRole("form", { name: "Edit step 1" });
-    fireEvent.change(within(form).getByLabelText("Instruction"), { target: { value: "" } });
-    fireEvent.click(within(form).getByRole("button", { name: "Save step" }));
-    expect(within(form).getByText("Describe the step in a few words.")).toBeDefined();
+    fireEvent.change(within(form).getByLabelText("Instruction"), {
+      target: { value: "" },
+    });
+    fireEvent.submit(form);
+    expect(
+      screen.getByRole("button", {
+        name: /Confirm route|Confirm with warnings/,
+      }),
+    ).toHaveProperty("disabled", true);
+    expect(
+      within(form)
+        .getByRole("textbox", { name: "Instruction" })
+        .getAttribute("aria-invalid"),
+    ).toBe("true");
   });
-
-  it("resolves a flagged step", () => {
-    inFlow(<ReviewScreen />);
-    expect(screen.getByRole("button", { name: "Confirm anyway" })).toBeDefined();
-    for (const button of screen.getAllByRole("button", { name: "Looks right" })) fireEvent.click(button);
-    expect(screen.getByRole("button", { name: "Confirm route" })).toBeDefined();
+  it("keeps acknowledged ambiguity and requires explicit route warning acknowledgement", () => {
+    inFlow(<ReviewScreen />, ambiguousFixture);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load test directions" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Acknowledge step" }));
+    expect(
+      screen.getByText("The speaker named contradictory turns."),
+    ).toBeDefined();
+    const confirm = screen.getByRole("button", {
+      name: "Confirm with warnings",
+    });
+    expect(confirm).toHaveProperty("disabled", true);
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /remaining uncertainty/i }),
+    );
+    expect(confirm).toHaveProperty("disabled", false);
   });
-});
-
-describe("Guide", () => {
-  it("steps through the route", async () => {
-    inFlow(<GuideScreen />);
-    expect(screen.getByRole("heading", { level: 2, name: /yellow tram stop/i })).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: "Next step" }));
-    expect(await screen.findByRole("heading", { level: 2, name: /bakery with blue tiles/i })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Previous step" })).toHaveProperty("disabled", false);
+  it("renders detected mixed languages without fabricated timestamps", () => {
+    inFlow(<ReviewScreen />, mixedLanguageFixture);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load test directions" }),
+    );
+    expect(screen.getByText(/Malayalam \+ Hindi \+ English/)).toBeDefined();
+    expect(screen.queryByText("0:00")).toBeNull();
   });
-});
-
-describe("Share", () => {
-  it("asks for acknowledgement before publishing uncertain steps", () => {
-    inFlow(<ShareScreen />);
-    const publish = screen.getByRole("button", { name: "Publish guide" });
-    expect(publish).toHaveProperty("disabled", true);
-    fireEvent.click(screen.getByRole("checkbox", { name: /shared with their warnings/i }));
-    expect(publish).toHaveProperty("disabled", false);
+  it("shows the reviewed guide, not Lisbon metadata, with nullable distance and keyboard navigation", async () => {
+    inFlow(<GuideScreen />, englishFixture);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load test directions" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm test directions" }),
+    );
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Start at the bus stop." }),
+    ).toBeDefined();
+    expect(screen.getByText("Not stated")).toBeDefined();
+    expect(screen.queryByText(/Lisbon/)).toBeNull();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: /two hundred meters/,
+      }),
+    ).toBeDefined();
+  });
+  it.each([
+    [<ShareScreen key="share" />, "Sharing"],
+    [<LensScreen key="lens" />, "Lens check"],
+  ] as const)("prevents simulated results for live guides", (ui, name) => {
+    inFlow(ui, englishFixture);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load test directions" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm test directions" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: name + " is coming later." }),
+    ).toBeDefined();
+    expect(
+      screen.queryByRole("button", { name: /publish|analyz/i }),
+    ).toBeNull();
   });
 });

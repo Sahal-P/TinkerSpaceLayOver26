@@ -1,40 +1,63 @@
 import { describe, expect, it } from "vitest";
+import { guideDraftSchema } from "@/contracts/guide";
+import { demoDraft, lensScenarios, lensVerdict } from "./fixtures";
+import { lensScenarioSchema, stepDraftSchema } from "./schemas";
+import { presentStep } from "./presentation";
 
-import { demoJourney, lensScenarios, lensVerdict, processingStages } from "./fixtures";
-import { journeySchema, lensScenarioSchema, processingStageSchema, stepDraftSchema } from "./schemas";
-
-describe("fixtures", () => {
-  it("match the Zod schemas", () => {
-    expect(() => journeySchema.parse(demoJourney)).not.toThrow();
-    expect(() => processingStageSchema.array().parse(processingStages)).not.toThrow();
-    expect(() => lensScenarioSchema.array().parse(lensScenarios)).not.toThrow();
+describe("canonical demo and form conversion", () => {
+  it("validates the demo against the backend and never invents live anchors", () => {
+    expect(guideDraftSchema.parse(demoDraft).languages.detected[0]?.code).toBe(
+      "en",
+    );
+    expect(lensScenarioSchema.array().parse(lensScenarios)).toHaveLength(3);
+    const step = demoDraft.steps[1];
+    if (!step) throw new Error("Missing fixture");
+    expect(presentStep(step, 1).anchor).toBeNull();
+    for (const scenario of lensScenarios)
+      expect(lensVerdict(scenario, presentStep(step, 1, true)).outcome).toBe(
+        scenario.outcome,
+      );
   });
-
-  it("highlight phrases that actually appear in the transcript", () => {
-    for (const segment of demoJourney.transcript) {
-      for (const highlight of segment.highlights) {
-        expect(segment.original).toContain(highlight.original);
-        expect(segment.translation).toContain(highlight.translation);
-      }
-    }
+  it.each([
+    ["", null],
+    ["0", 0],
+    ["3.048", 3.048],
+  ])("preserves nullable/decimal distance %s", (raw, expected) => {
+    expect(
+      stepDraftSchema.parse({
+        instruction: "Continue",
+        landmark: "",
+        direction: "straight",
+        incline: "",
+        distanceM: raw,
+      }).distanceM,
+    ).toBe(expected);
   });
-
-  it("produce a verdict for each scenario", () => {
-    const step = journeySchema.parse(demoJourney).steps[3];
-    if (!step) throw new Error("Missing demo step");
-    for (const scenario of lensScenarios) {
-      expect(lensVerdict(scenario, step).outcome).toBe(scenario.outcome);
-    }
-  });
-});
-
-describe("stepDraftSchema", () => {
-  it("coerces form distance and reports readable errors", () => {
-    expect(stepDraftSchema.parse({ instruction: "Go left", landmark: "Church", direction: "left", distanceM: "120" }).distanceM).toBe(120);
-    const result = stepDraftSchema.safeParse({ instruction: "", landmark: "C", direction: "left", distanceM: "-5" });
-    expect(result.success).toBe(false);
-    expect(result.error?.issues.map((issue) => issue.message)).toEqual(
-      expect.arrayContaining(["Describe the step in a few words.", "Name the landmark to look for.", "Distance can't be negative."]),
+  it.each(["-5", "NaN", "Infinity", "1e4", "1,2"])(
+    "rejects invalid distance %s",
+    (value) => {
+      expect(
+        stepDraftSchema.safeParse({
+          instruction: "Continue",
+          landmark: "",
+          direction: "straight",
+          incline: "",
+          distanceM: value,
+        }).success,
+      ).toBe(false);
+    },
+  );
+  it("allows missing landmarks and rejects unknown fields", () => {
+    const fields = {
+      instruction: "Continue",
+      landmark: "",
+      direction: "unknown",
+      incline: "",
+      distanceM: "",
+    };
+    expect(stepDraftSchema.parse(fields).landmark).toBeNull();
+    expect(stepDraftSchema.safeParse({ ...fields, gps: 12 }).success).toBe(
+      false,
     );
   });
 });

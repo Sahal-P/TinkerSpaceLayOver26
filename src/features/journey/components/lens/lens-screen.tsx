@@ -1,6 +1,15 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Camera, Check, CircleHelp, ImageUp, RotateCcw, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Camera,
+  Check,
+  CircleHelp,
+  ImageUp,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,14 +21,24 @@ import { Badge } from "@/components/ui/badge";
 import { Button, arrowNudge, buttonStyles } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { Viewfinder } from "@/components/viewfinder";
+import {
+  FlowEmpty,
+  DeferredFeature,
+} from "@/features/journey/components/flow/flow-empty";
 import { ScreenIntro } from "@/features/journey/components/flow/screen-intro";
-import { lensScenarios, lensVerdict, type LensVerdict } from "@/features/journey/fixtures";
+import {
+  lensScenarios,
+  lensVerdict,
+  type LensVerdict,
+} from "@/features/journey/fixtures";
 import { useJourney } from "@/features/journey/journey-store";
 import type { LensScenario } from "@/features/journey/schemas";
 import { duration, ease } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
-type Capture = { kind: "sample"; scenario: LensScenario } | { kind: "photo"; url: string; scenario: LensScenario };
+type Capture =
+  | { kind: "sample"; scenario: LensScenario }
+  | { kind: "photo"; url: string; scenario: LensScenario };
 type Phase = "aim" | "analyzing" | "result";
 
 const ANALYZE_MS = 2200;
@@ -34,14 +53,40 @@ const views: Record<SceneStopId, LensView> = {
 };
 
 const tones = {
-  match: { tone: "positive", label: "Match", icon: Check, panel: "bg-positive-soft", text: "text-positive" },
-  unsure: { tone: "caution", label: "Unsure", icon: CircleHelp, panel: "bg-caution-soft", text: "text-caution" },
-  mismatch: { tone: "critical", label: "No match", icon: X, panel: "bg-critical-soft", text: "text-critical" },
+  match: {
+    tone: "positive",
+    label: "Match",
+    icon: Check,
+    panel: "bg-positive-soft",
+    text: "text-positive",
+  },
+  unsure: {
+    tone: "caution",
+    label: "Unsure",
+    icon: CircleHelp,
+    panel: "bg-caution-soft",
+    text: "text-caution",
+  },
+  mismatch: {
+    tone: "critical",
+    label: "No match",
+    icon: X,
+    panel: "bg-critical-soft",
+    text: "text-critical",
+  },
 } as const;
 
 const checkIcons = { pass: Check, unknown: CircleHelp, fail: X } as const;
 
 export function LensScreen() {
+  const { state } = useJourney();
+  if (!state.draft) return <FlowEmpty />;
+  if (!state.routeConfirmed) return <FlowEmpty needsReview />;
+  if (state.mode === "live") return <DeferredFeature feature="Lens check" />;
+  return <DemoLensScreen />;
+}
+
+function DemoLensScreen() {
   const router = useRouter();
   const { state, dispatch } = useJourney();
   const index = state.currentStep;
@@ -66,7 +111,11 @@ export function LensScreen() {
       const result = lensVerdict(capture.scenario, step);
       setVerdict(result);
       setPhase("result");
-      dispatch({ type: "lens/checked", stepId: step.id, outcome: result.outcome });
+      dispatch({
+        type: "lens/checked",
+        stepId: step.id,
+        outcome: result.outcome,
+      });
     }, ANALYZE_MS);
     return () => window.clearTimeout(timer);
   }, [phase, capture, step, dispatch]);
@@ -75,7 +124,13 @@ export function LensScreen() {
 
   const expected: LensView = step.anchor ? views[step.anchor] : "street";
   const captured: LensView | null =
-    capture?.kind === "sample" ? (capture.scenario.outcome === "mismatch" ? (expected === "street" ? "church" : "street") : expected) : null;
+    capture?.kind === "sample"
+      ? capture.scenario.outcome === "mismatch"
+        ? expected === "street"
+          ? "church"
+          : "street"
+        : expected
+      : null;
 
   const analyze = (next: Capture) => {
     setVerdict(null);
@@ -88,8 +143,15 @@ export function LensScreen() {
     event.target.value = "";
     if (!file) return;
     // Photos stay on the device; the demo returns an honest "unsure".
-    const partial = lensScenarios.find((scenario) => scenario.outcome === "unsure") ?? lensScenarios[1];
-    if (partial) analyze({ kind: "photo", url: URL.createObjectURL(file), scenario: partial });
+    const partial =
+      lensScenarios.find((scenario) => scenario.outcome === "unsure") ??
+      lensScenarios[1];
+    if (partial)
+      analyze({
+        kind: "photo",
+        url: URL.createObjectURL(file),
+        scenario: partial,
+      });
   };
 
   const reset = () => {
@@ -99,17 +161,34 @@ export function LensScreen() {
   };
 
   const continueJourney = () => {
-    if (verdict?.outcome === "match" && index < state.steps.length - 1) dispatch({ type: "guide/moved", index: index + 1 });
+    if (verdict?.outcome === "match" && index < state.steps.length - 1)
+      dispatch({ type: "guide/moved", index: index + 1 });
     router.push("/guide");
   };
 
   const tone = verdict ? tones[verdict.outcome] : null;
 
   return (
-    <Container size="xl" className="grid flex-1 gap-8 py-6 sm:py-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:items-start lg:gap-16 lg:py-14">
+    <Container
+      size="xl"
+      className="grid flex-1 gap-8 py-6 sm:py-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:items-start lg:gap-16 lg:py-14"
+    >
       <Viewfinder
         locked={phase === "analyzing"}
-        topLeft={<span className="flex items-center gap-2"><span aria-hidden className={cn("size-1.5 rounded-full", phase === "analyzing" ? "bg-accent-vivid motion-safe:animate-pulse" : "bg-ink-inverse")} />Lens check</span>}
+        topLeft={
+          <span className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className={cn(
+                "size-1.5 rounded-full",
+                phase === "analyzing"
+                  ? "bg-accent-vivid motion-safe:animate-pulse"
+                  : "bg-ink-inverse",
+              )}
+            />
+            Lens check
+          </span>
+        }
         topRight="1×"
         className="aspect-[3/4] w-full max-h-[70svh] lg:sticky lg:top-28 lg:max-h-[calc(100dvh-9rem)]"
         bottom={
@@ -123,11 +202,15 @@ export function LensScreen() {
                 <tone.icon aria-hidden className={cn("size-4", tone.text)} />
                 {tone.label}
               </span>
-              <span className="font-mono text-sm tabular-nums">{Math.round(verdict.score * 100)}%</span>
+              <span className="font-mono text-sm tabular-nums">
+                {Math.round(verdict.score * 100)}%
+              </span>
             </motion.div>
           ) : (
             <p className="caps rounded-2xl bg-surface-inverse/70 px-4 py-3 text-center text-ink-inverse">
-              {phase === "analyzing" ? `Comparing with “${step.landmark}”…` : `Looking for: ${step.landmark}`}
+              {phase === "analyzing"
+                ? `Comparing with “${step.landmark}”…`
+                : `Looking for: ${step.landmark}`}
             </p>
           )
         }
@@ -144,16 +227,29 @@ export function LensScreen() {
             >
               {capture.kind === "photo" ? (
                 // eslint-disable-next-line @next/next/no-img-element -- local blob preview; nothing to optimize
-                <img src={capture.url} alt="Your photo" className="h-full w-full object-cover" />
+                <img
+                  src={capture.url}
+                  alt="Your photo"
+                  className="h-full w-full object-cover"
+                />
               ) : captured ? (
                 <LensArt
                   view={captured}
-                  className={cn(capture.scenario.outcome === "unsure" && "origin-[70%_40%] scale-[1.9] blur-[1.5px]")}
+                  className={cn(
+                    capture.scenario.outcome === "unsure" &&
+                      "origin-[70%_40%] scale-[1.9] blur-[1.5px]",
+                  )}
                 />
               ) : null}
             </motion.div>
           ) : (
-            <motion.div key="aim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0">
+            <motion.div
+              key="aim"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0"
+            >
               <LensArt view={expected} className="opacity-25 blur-[3px]" />
               <div className="absolute inset-0 grid place-items-center">
                 <span className="grid size-24 place-items-center rounded-full ring-1 ring-ink-inverse/60">
@@ -164,23 +260,30 @@ export function LensScreen() {
           )}
         </AnimatePresence>
         {phase === "analyzing" ? (
-          <div aria-hidden className="absolute inset-x-0 top-0 h-full [--scan-distance:100%]">
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-full [--scan-distance:100%]"
+          >
             <span className="block h-0.5 w-full bg-accent-vivid shadow-[0_0_24px_4px] shadow-accent-vivid/50 motion-safe:animate-scan" />
           </div>
         ) : null}
       </Viewfinder>
 
       <div>
-        <ScreenIntro
-          title="Is this the right place?"
-        >
-          Point your camera at the landmark and Local to Lens compares it with what the local described.
+        <ScreenIntro title="Is this the right place?">
+          Point your camera at the landmark and Local to Lens compares it with
+          what the local described.
         </ScreenIntro>
 
-        <section aria-label="What to look for" className="mt-8 rounded-panel bg-surface-raised p-6 ring-1 ring-line">
+        <section
+          aria-label="What to look for"
+          className="mt-8 rounded-panel bg-surface-raised p-6 ring-1 ring-line"
+        >
           <p className="caps text-ink-muted">Step {index + 1} · Looking for</p>
           <p className="mt-2 font-display text-2xl">{step.landmark}</p>
-          <p className="mt-2 text-ink-muted">{step.lookFor || step.instruction}</p>
+          <p className="mt-2 text-ink-muted">
+            {step.lookFor || step.instruction}
+          </p>
         </section>
 
         <div className="mt-8" aria-live="polite">
@@ -197,9 +300,13 @@ export function LensScreen() {
                 <div className={cn("rounded-panel p-6", tone.panel)}>
                   <div className="flex items-center justify-between gap-4">
                     <Badge tone={tone.tone}>{tone.label}</Badge>
-                    <span className="font-mono text-sm tabular-nums">{Math.round(verdict.score * 100)}% likely</span>
+                    <span className="font-mono text-sm tabular-nums">
+                      {Math.round(verdict.score * 100)}% likely
+                    </span>
                   </div>
-                  <h2 className="mt-4 font-display text-3xl">{verdict.headline}</h2>
+                  <h2 className="mt-4 font-display text-3xl">
+                    {verdict.headline}
+                  </h2>
                   <div
                     role="meter"
                     aria-label="Match likelihood"
@@ -209,10 +316,17 @@ export function LensScreen() {
                     className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-raised"
                   >
                     <motion.span
-                      className={cn("block h-full origin-left rounded-full", tone.text, "bg-current")}
+                      className={cn(
+                        "block h-full origin-left rounded-full",
+                        tone.text,
+                        "bg-current",
+                      )}
                       initial={{ scaleX: 0 }}
                       animate={{ scaleX: verdict.score }}
-                      transition={{ duration: duration.cinematic, ease: ease.outSoft }}
+                      transition={{
+                        duration: duration.cinematic,
+                        ease: ease.outSoft,
+                      }}
                     />
                   </div>
                   <p className="mt-4 text-ink">{verdict.detail}</p>
@@ -220,23 +334,51 @@ export function LensScreen() {
                     {verdict.checks.map((check) => {
                       const Icon = checkIcons[check.status];
                       return (
-                        <li key={check.label} className="flex items-center gap-2">
-                          <Icon aria-hidden className={cn("size-4", check.status === "pass" ? "text-positive" : check.status === "fail" ? "text-critical" : "text-caution")} />
+                        <li
+                          key={check.label}
+                          className="flex items-center gap-2"
+                        >
+                          <Icon
+                            aria-hidden
+                            className={cn(
+                              "size-4",
+                              check.status === "pass"
+                                ? "text-positive"
+                                : check.status === "fail"
+                                  ? "text-critical"
+                                  : "text-caution",
+                            )}
+                          />
                           <span>{check.label}</span>
-                          <span className="sr-only">: {check.status === "pass" ? "matches" : check.status === "fail" ? "doesn't match" : "can't tell"}</span>
+                          <span className="sr-only">
+                            :{" "}
+                            {check.status === "pass"
+                              ? "matches"
+                              : check.status === "fail"
+                                ? "doesn't match"
+                                : "can't tell"}
+                          </span>
                         </li>
                       );
                     })}
                   </ul>
                 </div>
                 {capture?.kind === "photo" ? (
-                  <p className="mt-3 text-sm text-ink-muted">Demo result: your photo stayed on this device and wasn&rsquo;t analyzed.</p>
+                  <p className="mt-3 text-sm text-ink-muted">
+                    Demo result: your photo stayed on this device and
+                    wasn&rsquo;t analyzed.
+                  </p>
                 ) : null}
                 <div className="mt-6 flex flex-col gap-2 sm:flex-row">
                   {verdict.outcome === "match" ? (
                     <Button size="lg" onClick={continueJourney}>
-                      {index < state.steps.length - 1 ? "Continue to next step" : "Back to the guide"}
-                      <ArrowRight aria-hidden className={cn("size-5", arrowNudge)} />
+                      {index < state.steps.length - 1
+                        ? "Continue to next step"
+                        : "Back to the guide"}
+                      <ArrowRight
+                        aria-hidden
+                        className={cn("size-5", arrowNudge)}
+                      />
                     </Button>
                   ) : (
                     <>
@@ -244,7 +386,11 @@ export function LensScreen() {
                         <RotateCcw aria-hidden className="size-4" />
                         Try again
                       </Button>
-                      <Button variant="secondary" size="lg" onClick={continueJourney}>
+                      <Button
+                        variant="secondary"
+                        size="lg"
+                        onClick={continueJourney}
+                      >
                         Continue anyway
                       </Button>
                     </>
@@ -252,19 +398,46 @@ export function LensScreen() {
                 </div>
               </motion.section>
             ) : (
-              <motion.div key="aim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div
+                key="aim"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button size="lg" onClick={() => cameraInput.current?.click()} disabled={phase === "analyzing"}>
+                  <Button
+                    size="lg"
+                    onClick={() => cameraInput.current?.click()}
+                    disabled={phase === "analyzing"}
+                  >
                     <Camera aria-hidden className="size-5" />
                     Take a photo
                   </Button>
-                  <Button variant="secondary" size="lg" onClick={() => libraryInput.current?.click()} disabled={phase === "analyzing"}>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => libraryInput.current?.click()}
+                    disabled={phase === "analyzing"}
+                  >
                     <ImageUp aria-hidden className="size-5" />
                     Upload
                   </Button>
                 </div>
-                <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />
-                <input ref={libraryInput} type="file" accept="image/*" hidden onChange={onFile} />
+                <input
+                  ref={cameraInput}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  hidden
+                  onChange={onFile}
+                />
+                <input
+                  ref={libraryInput}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={onFile}
+                />
 
                 <p className="caps mt-8 text-ink-muted">Or try a sample view</p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -281,7 +454,12 @@ export function LensScreen() {
                   ))}
                 </div>
                 {phase === "analyzing" ? (
-                  <Button variant="ghost" size="sm" className="mt-4" onClick={reset}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-4"
+                    onClick={reset}
+                  >
                     Cancel
                   </Button>
                 ) : null}
@@ -290,7 +468,13 @@ export function LensScreen() {
           </AnimatePresence>
         </div>
 
-        <Link href="/guide" className={buttonStyles({ variant: "ghost", className: "mt-8 -ml-4" })}>
+        <Link
+          href="/guide"
+          className={buttonStyles({
+            variant: "ghost",
+            className: "mt-8 -ml-4",
+          })}
+        >
           <ArrowLeft aria-hidden className="size-4" />
           Back to the guide
         </Link>
