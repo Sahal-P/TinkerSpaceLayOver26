@@ -479,3 +479,16 @@ Add `GEMINI_TTS_MODEL` only in server configuration; it is optional and validate
 `src/server/env.ts`. Existing `GEMINI_API_KEY`, session/origin settings and ADC are reused.
 No secrets enter client bundles. See `src/server/speech/VERIFICATION.md` for the bounded live
 checks: Malayalam uncertainty translation failed validation; physical Safari remains pending.
+
+## Targeted Hindi clip correction
+
+The direction grounder now accepts explicit `reach`, `reaches`, `reached` and `reaching` arrival
+wording, while retaining negation filtering and exact paired evidence. Extraction prompting makes
+non-turn labels conditional on supported words; unqualified walking/crossing instructions retain
+unknown heading, low confidence and review warnings. No canonical/API schema changed.
+
+Internal rejection logs use `directions_rejected`, a request UUID, stage, fixed reason code and
+whitelisted schema path. Reasons distinguish truncation, invalid JSON/structure, quote/order,
+direction/incline, distance/landmark, language/transcript and guide bounds. No model text, audio,
+Zod input values or provider exceptions are logged; diagnostics do not enter the client envelope.
+See [HINDI-CLIP-FIX.md](HINDI-CLIP-FIX.md) for the bounded eight-attempt ledger and accuracy limits.

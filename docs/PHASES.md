@@ -105,6 +105,17 @@ Follow [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
 
 See `src/server/speech/VERIFICATION.md` for safe live findings and limitations.
 
+## Targeted Hindi MP3 correction
+
+- [x] Reproduce the validation rejection with the supplied long Hindi clip
+- [x] Recognize explicit reach inflections; retain negation/evidence safeguards
+- [x] Clarify unknown-heading extraction and add content-free rejection diagnostics
+- [x] Sudhir browser extraction → review → guide; Monika same-script API cross-check
+- [ ] Independent fact comparison with a source text/native-speaker review
+
+See [HINDI-CLIP-FIX.md](HINDI-CLIP-FIX.md). Timeouts remain safe retryable provider errors; no
+deadline or limit was increased.
+
 ## Phase 3b: Saved and shared guides (deferred)
 
 Wire confirmed saves, publishing/revocation, canonical share URLs/QR, and `/g/[id]` through the

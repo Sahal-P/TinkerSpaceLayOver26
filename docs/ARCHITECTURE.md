@@ -77,6 +77,11 @@ detection: compressed audio, quiet speech, ambient noise, and nonzero signals st
 Upload controls wait for hydration so early WebKit file events are not lost. Audio stays in memory
 for retry and is released on success/reset/flow exit.
 
+Rejection diagnostics are server-only: fixed stage/reason codes, whitelisted schema paths and
+request IDs. The client error envelope is unchanged. Explicit reach inflections count as arrival
+evidence; negated wording does not. The extraction prompt avoids inferred straight/start labels
+for instructions with unspecified heading, preserving their quoted facts and review warnings.
+
 ## Guide voice guidance
 
 `contracts/speech.ts` derives narration fields from canonical step fields. Guide voice is opt-in,
