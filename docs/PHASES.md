@@ -93,6 +93,18 @@ remain. Mixed TTS returned a valid draft with uncertainty but failed the strict 
 Real microphone acoustics, native-speaker accuracy and physical Safari remain pending.
 Follow [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
 
+## Phase 3a extension: Voice guidance and processing feedback
+
+- [x] Opt-in current-step voice, manual navigation, replay and loading/error/autoplay controls
+- [x] English/Hindi/Malayalam narration with translated preview; canonical English unchanged
+- [x] Bounded browser/server session caches, cancellation, next-step prefetch and atomic speech limits
+- [x] Live upload/processing spinner and honest indeterminate progress; reduced-motion support
+- [x] Bounded live speech checks: English, Hindi and Malayalam clear; English/Hindi uncertainty
+- [ ] Native-speaker review and Malayalam uncertainty translation follow-up
+- [ ] Physical Safari playback and autoplay verification
+
+See `src/server/speech/VERIFICATION.md` for safe live findings and limitations.
+
 ## Phase 3b: Saved and shared guides (deferred)
 
 Wire confirmed saves, publishing/revocation, canonical share URLs/QR, and `/g/[id]` through the

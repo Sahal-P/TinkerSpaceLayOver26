@@ -411,3 +411,71 @@ it is not a fact-accuracy pass. See the attempt ledger in [AUDIO-VERIFICATION.md
 TTS is a synthetic integration check. It does not prove faithful TTS pronunciation, native-speaker
 transcription accuracy, real Chrome microphone quality or physical Safari behavior. No guide was
 saved/published, and no raw transcript/provider error was written to the verification report.
+
+## Guide voice APIs
+
+Voice is off by default and separate from recording consent. The Guide explains that enabling it
+sends the current step and warnings to Google Gemini. The reviewed English card remains canonical;
+translated narration is presentation data only. The demo may use these endpoints after explicit
+voice enablement; opening the demo alone does not call Gemini.
+
+Import narration schemas, language enum and inferred types from `@/contracts/speech`.
+
+### POST `/api/speech/translate`
+
+JSON: `{ step, routeWarnings, language }`. `step` includes only the canonical editable fields
+`instruction`, `direction`, `incline`, `landmark`, `distance`, plus `warnings`; no transcript,
+evidence, anchors, coordinates, session ID or provider settings are accepted. Languages: en/ml/hi.
+Returns `{ data: { language, sections }, requestId }`, where sections contains `instruction`,
+nullable `landmark`, nullable `distance`, and ordered `warnings`. English needs no model translation.
+
+Names, distance references, numeric tokens and English number-word quantities remain verbatim
+inside translated text. This deliberate policy protects quantities and names at the cost of fully
+localized phrasing. Null alignment, warning count, quantities and negation/uncertainty markers are
+validated, with conservative left/right/straight and alternative-word checks. Invalid translations fail with `invalid_speech_output`; they are not repaired or used
+as canonical edits. These guards cannot establish full semantic accuracy; native-speaker review is
+required and conservative false rejections are possible.
+
+### POST `/api/speech`
+
+JSON: `{ text, language }`, 1–600 trimmed characters, en/ml/hi. Success is binary `audio/wav` with
+`X-Request-Id`, private/no-store headers and no public audio URL. Failures use the existing JSON
+error envelope. The client validates MIME, the streamed 4 MiB limit, container, duration and signal
+before playback. Very short narration is allowed; recording uploads still require 2–120 seconds.
+Generated clips cannot exceed 120 seconds or 4 MiB. A prepared step cannot exceed 16 MiB total.
+
+The server uses `getGemini().interactions.create()`, `GEMINI_TTS_MODEL` (default
+`gemini-3.8-flash-tts`), prebuilt Kore and `store:false`. Model/voice/style are server controlled.
+There is no voice cloning, browser speech engine fallback or new cloud resource. Translation and
+TTS are bounded to 45 seconds per request within a 60-second route budget; SDK automatic retries
+are disabled. Quota returns safe retryable `upstream_quota_exceeded`; permanent provider failures
+return non-retryable `service_misconfigured`. Invalid/malformed/silent generated clips return
+`invalid_speech_output`. Capacity exhaustion returns retryable `speech_busy`. Failures never log
+provider content, text or credentials.
+
+Both endpoints require the existing same-origin checks and establish/reuse a signed owner cookie.
+Atomic speech limits count all requests, including server cache hits: 12/minute and 120/day per
+session, 500/day globally. Translation and each speech chunk count separately. Long or frequently
+replayed steps may exhaust a limit; errors stop synthesis/prefetch until explicit retry.
+No protection bypass occurs when Firestore is unavailable.
+
+### Playback and memory caching
+
+The Guide toggle reads the active step and its warnings. It does not read site chrome, original
+transcript quotes or confidence labels, and it never changes the current step. Step selection by
+buttons, keyboard, swipe or scene cancels obsolete playback/requests. Language changes regenerate
+presentation narration. Errors preserve text navigation. Browser autoplay rejection exposes Tap
+to play; backgrounding pauses and cancels pending work, with manual resume on return.
+
+Browser LRU: 16 MiB / 128 entries; cleared on journey reset, draft change, unmount/reload.
+Server process LRU: 64 MiB / 128 entries, lazy 30-minute TTL. Keys hash the owner session, exact
+content, language, model, voice and format version. In-flight calls deduplicate; failed/cancelled
+results are not server cached. Browser failures are remembered until explicit retry/reset. No
+cross-session reuse or durable storage. Server caches are per process and lost on restart; this
+is intentional, with no distributed cache infrastructure. HTTP responses remain no-store.
+Prefetch prepares only the next step after current audio finishes, and stops on errors.
+
+Add `GEMINI_TTS_MODEL` only in server configuration; it is optional and validated lazily in
+`src/server/env.ts`. Existing `GEMINI_API_KEY`, session/origin settings and ADC are reused.
+No secrets enter client bundles. See `src/server/speech/VERIFICATION.md` for the bounded live
+checks: Malayalam uncertainty translation failed validation; physical Safari remains pending.

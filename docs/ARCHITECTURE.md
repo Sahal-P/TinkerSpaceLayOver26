@@ -77,6 +77,38 @@ detection: compressed audio, quiet speech, ambient noise, and nonzero signals st
 Upload controls wait for hydration so early WebKit file events are not lost. Audio stays in memory
 for retry and is released on success/reset/flow exit.
 
+## Guide voice guidance
+
+`contracts/speech.ts` derives narration fields from canonical step fields. Guide voice is opt-in,
+English by default, follows manually selected steps, and never advances the route. It reads the
+instruction, existing landmark/distance and deduplicated step/route warnings. Missing details remain
+null. English route cards stay unchanged; Hindi/Malayalam voice translations have an expandable preview.
+Landmark names, quantity literals and the distance section stay verbatim rather than being inferred.
+Translation guards check structure, nulls, warning alignment, quantities, turn/alternative wording, negation and uncertainty
+markers; these conservative checks can reject valid translations and do not prove semantic truth.
+Native-speaker review is still required. Demo narration calls Gemini only after opt-in.
+
+Server-only speech endpoints use `getGemini()` and the existing signed session/origin protections.
+Translation uses the structured-output model; speech uses `GEMINI_TTS_MODEL`, prebuilt Kore and
+`store:false`. Binary WAV is inspected, including very short speech clips; recording uploads retain
+the two-second minimum. Provider calls have a 45-second deadline and no automatic retry.
+
+The browser uses one reusable audio element, lossless 600-character chunks, attempt identities,
+abort signals, and revoked object URLs. Playback stops on voice-off, step/language change, page hiding
+or exit; returning from a hidden page requires a tap. Blocked autoplay has a Tap to play control.
+Service errors latch until explicit retry, with Retry-After cooldown. Navigation remains usable.
+
+Translation and audio caches are private memory only, keyed by session/content/language/model/voice
+on the server. Server cache: 64 MiB / 128 entries, lazy 30-minute TTL and in-flight deduplication.
+Browser cache: 16 MiB / 128 entries, reset on draft replacement/edit, journey unmount or reload.
+Only the next step is prefetched, after current playback completes. No Storage, IndexedDB, CDN,
+filesystem or Firestore audio is used by the app. Atomic Firestore speech budgets limit all API
+requests (including server cache hits) to 12/minute and 120/day per session, 500/day globally.
+
+Processing shows real upload progress plus an animated loader, then an indeterminate spinner/line.
+Stage dots stay pending until the validated response; they never simulate stage completion.
+Reduced motion suppresses the decorative loops while keeping an accessible status visible.
+
 ## Canonical contracts and review
 
 `contracts/guide.ts` owns domain schemas and inferred types. UI schemas convert HTML form values,
