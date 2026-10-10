@@ -1,0 +1,90 @@
+/*
+ * Design tokens: the single source of truth for color, type, radius, shadow and motion.
+ * Components use the semantic utilities generated below (bg-surface, text-ink, ...),
+ * never raw palette values or hex codes.
+ */
+
+:root {
+  /* Raw palette (private): referenced only by the semantic tokens below. */
+  --sand-50: #faf7f2;
+  --sand-100: #f3ede4;
+  --sand-200: #e7ded0;
+  --paper: #fffdf9;
+  --stone-400: #a8a29e;
+  --stone-500: #78716c;
+  --ink-800: #292524;
+  --ink-900: #1c1917;
+  --ink-925: #151311;
+  --ink-950: #0c0a09;
+  --terra-100: #ffedd5;
+  --terra-300: #fdba74;
+  --terra-400: #fb923c;
+  --terra-700: #c2410c;
+  --terra-800: #9a3412;
+  --terra-950: #431407;
+
+  /* Semantic tokens (light). */
+  --surface: var(--sand-50);
+  --surface-raised: var(--paper);
+  --surface-sunken: var(--sand-100);
+  --ink: var(--ink-900);
+  --ink-muted: var(--stone-500);
+  --line: var(--sand-200);
+  --accent: var(--terra-700);
+  --accent-hover: var(--terra-800);
+  --accent-soft: var(--terra-100);
+  --on-accent: var(--sand-50);
+  --ring: var(--terra-700);
+
+  /* Layout. */
+  --gutter: 1.25rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: var(--ink-950);
+    --surface-raised: var(--ink-900);
+    --surface-sunken: var(--ink-925);
+    --ink: var(--sand-50);
+    --ink-muted: var(--stone-400);
+    --line: var(--ink-800);
+    --accent: var(--terra-400);
+    --accent-hover: var(--terra-300);
+    --accent-soft: var(--terra-950);
+    --on-accent: var(--ink-950);
+    --ring: var(--terra-400);
+  }
+}
+
+@media (width >= 40rem) {
+  :root {
+    --gutter: 2rem;
+  }
+}
+
+/* Runtime variables, so `inline` keeps light/dark switching working. */
+@theme inline {
+  /* Only semantic colors exist as utilities. */
+  --color-*: initial;
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-ring: var(--ring);
+
+  /* Font variables come from next/font in src/app/layout.tsx. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+}
+
+@theme {
+  --radius-card: 1.5rem;
+  --shadow-soft: 0 1px 2px rgb(28 25 23 / 0.06), 0 12px 32px -16px rgb(28 25 23 / 0.25);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}

@@ -1,0 +1,21 @@
+# pnpm 11 defaults already apply supply-chain protection:
+# minimumReleaseAge (1 day), blockExoticSubdeps, and strictDepBuilds.
+# Every dependency install script must be explicitly allowed or denied here.
+allowBuilds:
+  # Optional native-binding fallback; prebuilt bindings install via optionalDependencies.
+  unrs-resolver: false
+  # Client-SDK autoinit helper pulled in by firebase-admin; not needed server-side.
+  "@firebase/util": false
+  # `preinstall` is an echo no-op.
+  "@google/genai": false
+  # `postinstall` only warns about dependents' version schemes.
+  protobufjs: false
+
+# ESLint 10 is the supported line (ESLint 9 is end-of-life). These eslint-config-next
+# plugins have not widened their peer ranges yet but run correctly on ESLint 10.
+# Remove each entry once the plugin declares ESLint 10 support.
+peerDependencyRules:
+  allowedVersions:
+    eslint-plugin-import>eslint: "10"
+    eslint-plugin-jsx-a11y>eslint: "10"
+    eslint-plugin-react>eslint: "10"

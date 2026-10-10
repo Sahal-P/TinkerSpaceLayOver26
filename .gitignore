@@ -1,0 +1,27 @@
+# dependencies
+/node_modules
+.pnpm-debug.log*
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# env files and credentials (never commit secrets)
+.env*
+!.env.example
+*.pem
+*service-account*.json
+
+# typescript
+*.tsbuildinfo
+
+# misc
+.DS_Store
+.vercel
