@@ -6,6 +6,16 @@ type EnvSource = Record<string, string | undefined>;
 
 const geminiEnvSchema = z.object({
   GEMINI_API_KEY: z.string().min(1),
+  GEMINI_MODEL: z.string().trim().min(1).max(100).default("gemini-3.8-flash"),
+});
+
+const backendEnvSchema = z.object({
+  SESSION_SECRET: z.string().min(32),
+  APP_ORIGIN: z.url().refine((value) => {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password &&
+      url.pathname === "/" && !url.search && !url.hash;
+  }, "Use an HTTP(S) origin without credentials, a path, query, or fragment."),
 });
 
 const firebaseEnvSchema = z
@@ -26,6 +36,17 @@ const firebaseEnvSchema = z
 
 export type GeminiEnv = z.infer<typeof geminiEnvSchema>;
 export type FirebaseEnv = z.infer<typeof firebaseEnvSchema>;
+export type BackendEnv = z.infer<typeof backendEnvSchema>;
+
+export function readBackendEnv(source: EnvSource = process.env): BackendEnv {
+  const env = parseEnv(backendEnvSchema, source, "Backend");
+  const url = new URL(env.APP_ORIGIN);
+  if (source.NODE_ENV === "production" && url.protocol !== "https:" &&
+      !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) {
+    throw new Error("Invalid Backend environment variables: APP_ORIGIN must use HTTPS in production.");
+  }
+  return { ...env, APP_ORIGIN: url.origin };
+}
 
 /** Validated lazily, when a client is first created, so builds never need secrets. */
 export function readGeminiEnv(source: EnvSource = process.env): GeminiEnv {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readFirebaseEnv, readGeminiEnv } from "./env";
+import { readBackendEnv, readFirebaseEnv, readGeminiEnv } from "./env";
 
 const serviceAccount = {
   FIREBASE_PROJECT_ID: "demo-project",
@@ -10,11 +10,31 @@ const serviceAccount = {
 
 describe("readGeminiEnv", () => {
   it("returns the API key", () => {
-    expect(readGeminiEnv({ GEMINI_API_KEY: "test-key" })).toEqual({ GEMINI_API_KEY: "test-key" });
+    expect(readGeminiEnv({ GEMINI_API_KEY: "test-key" })).toEqual({ GEMINI_API_KEY: "test-key", GEMINI_MODEL: "gemini-3.8-flash" });
   });
 
   it("names the missing variable without echoing values", () => {
     expect(() => readGeminiEnv({ GEMINI_API_KEY: " " })).toThrow(/GEMINI_API_KEY/);
+  });
+});
+
+describe("readBackendEnv", () => {
+  const settings = { SESSION_SECRET: "unit-test-secret-of-at-least-32-characters", APP_ORIGIN: "https://example.com" };
+  it("requires secrets only at first use", () => {
+    expect(() => readBackendEnv({})).toThrow(/SESSION_SECRET/);
+    expect(readBackendEnv(settings)).toEqual(settings);
+  });
+  it("rejects insecure production origins and embedded credentials", () => {
+    expect(() => readBackendEnv({ ...settings, NODE_ENV: "production", APP_ORIGIN: "http://example.com" })).toThrow(/APP_ORIGIN/);
+    expect(() => readBackendEnv({ ...settings, APP_ORIGIN: "https://user:password@example.com" })).toThrow(/APP_ORIGIN/);
+    expect(() => readBackendEnv({ ...settings, APP_ORIGIN: "https://example.com/path" })).toThrow(/APP_ORIGIN/);
+  });
+  it("allows localhost and normalizes the origin", () => {
+    expect(readBackendEnv({ ...settings, NODE_ENV: "production", APP_ORIGIN: "http://localhost:3000/" }).APP_ORIGIN).toBe("http://localhost:3000");
+  });
+  it("never includes secret values in validation failures", () => {
+    try { readBackendEnv({ ...settings, SESSION_SECRET: "tiny-secret", APP_ORIGIN: "bad" }); }
+    catch (error) { expect(String(error)).not.toContain("tiny-secret"); }
   });
 });
 

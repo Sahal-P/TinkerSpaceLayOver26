@@ -106,3 +106,10 @@ Open decisions:
 - Self-host the editorial photography, which is currently loaded from the Pexels CDN.
 - Observability (errors and logs without PII), performance budgets for the 3D chunk, and an accessibility audit.
 - Deployment target (Firebase App Hosting or Vercel), CI pipeline, and environments.
+
+## Backend review integrated
+
+The isolated backend review commit `f8752e8` is integrated on `feat/backend-integration`.
+Only its review changes were applied; the foundation seed was excluded.
+Gemini extraction and Firestore APIs are installed; frontend wiring is the next integration step.
+See [API.md](API.md) for canonical contracts and verification limits.
