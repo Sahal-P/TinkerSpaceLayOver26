@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readBackendEnv, readFirebaseEnv, readGeminiEnv } from "./env";
+import { readBackendEnv, readFirebaseEnv, readGeminiEnv, readSpeechEnv } from "./env";
 
 const serviceAccount = {
   FIREBASE_PROJECT_ID: "demo-project",
@@ -67,5 +67,12 @@ describe("readFirebaseEnv", () => {
     expect(() => readFirebaseEnv({ ...serviceAccount, FIREBASE_CLIENT_EMAIL: "not-an-email" })).toThrow(
       /FIREBASE_CLIENT_EMAIL/,
     );
+  });
+});
+
+describe("readSpeechEnv", () => {
+  it("uses the stable TTS default and validates lazily", () => {
+    expect(readSpeechEnv({})).toEqual({ GEMINI_TTS_MODEL: "gemini-3.8-flash-tts" });
+    expect(() => readSpeechEnv({ GEMINI_TTS_MODEL: "x".repeat(101) })).toThrow(/GEMINI_TTS_MODEL/);
   });
 });

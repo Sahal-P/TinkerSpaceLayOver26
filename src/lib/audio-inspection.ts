@@ -46,6 +46,7 @@ const containerTypes: Record<string, string> = {
 export async function inspectAudioSource(
   source: Uint8Array | Blob,
   signal: AbortSignal,
+  minimumDurationMs = MIN_AUDIO_MS,
 ): Promise<{ mimeType: string; actualDurationMs: number; digitalSilence: boolean }> {
   const size = source instanceof Uint8Array ? source.byteLength : source.size;
   if (size === 0) throw invalidAudio();
@@ -106,7 +107,7 @@ export async function inspectAudioSource(
     const actualDurationMs = Math.round(duration * 1000);
     if (!Number.isFinite(actualDurationMs) || actualDurationMs <= 0)
       throw invalidAudio();
-    if (actualDurationMs < MIN_AUDIO_MS)
+    if (actualDurationMs < minimumDurationMs)
       throw new AudioInspectionError(
         "audio_too_short",
         "Audio must last at least two seconds.",

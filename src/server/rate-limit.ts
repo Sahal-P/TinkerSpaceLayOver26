@@ -12,8 +12,9 @@ const counterSchema = z.strictObject({
   day: z.number().int().nonnegative(), dayCount: z.number().int().nonnegative(),
 });
 type Counter = z.infer<typeof counterSchema>;
-type Operation = "extraction" | "mutation" | "read";
+type Operation = "extraction" | "mutation" | "read" | "speech";
 const policies = {
+  speech: { minute: 12, daily: 120, global: 500 },
   extraction: { minute: 3, daily: 20, global: 200 },
   mutation: { minute: 10, daily: Number.MAX_SAFE_INTEGER, global: 1000 },
   read: { minute: Number.MAX_SAFE_INTEGER, daily: Number.MAX_SAFE_INTEGER, global: 5000 },

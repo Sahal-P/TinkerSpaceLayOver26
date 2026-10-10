@@ -48,3 +48,16 @@ describe("distributed fail-closed abuse budgets", () => {
     await expect(enforceRateLimit("read")).rejects.toMatchObject({ code: "storage_unavailable" });
   });
 });
+
+describe("speech generation budgets", () => {
+  it("limits concurrent speech and daily/global use independently of extraction", async () => {
+    const now = Date.parse("2026-10-11T12:00:00Z"); const owner = newViewer();
+    const results = await Promise.allSettled(Array.from({ length: 13 }, () => enforceRateLimit("speech", owner, now)));
+    expect(results.filter(result => result.status === "fulfilled")).toHaveLength(12);
+    const minute = Math.floor(now / 60000); const day = Math.floor(now / 86400000);
+    state.db?.documents.set("_rate_limits/speech-" + ownerKey(owner), { minute, day, minuteCount: 0, dayCount: 120 });
+    await expect(enforceRateLimit("speech", owner, now)).rejects.toMatchObject({ status: 429 });
+    state.db?.documents.set("_rate_limits/global-speech", { minute, day, minuteCount: 0, dayCount: 500 });
+    await expect(enforceRateLimit("speech", newViewer(), now)).rejects.toMatchObject({ status: 429 });
+  });
+});

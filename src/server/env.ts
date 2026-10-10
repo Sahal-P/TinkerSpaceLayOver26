@@ -9,6 +9,13 @@ const geminiEnvSchema = z.object({
   GEMINI_MODEL: z.string().trim().min(1).max(100).default("gemini-3.8-flash"),
 });
 
+const speechEnvSchema = z.object({
+  GEMINI_TTS_MODEL: z.string().trim().min(1).max(100).default("gemini-3.8-flash-tts"),
+});
+export function readSpeechEnv(source: EnvSource = process.env) {
+  return parseEnv(speechEnvSchema, source, "Speech");
+}
+
 const backendEnvSchema = z.object({
   SESSION_SECRET: z.string().min(32),
   APP_ORIGIN: z.url().refine((value) => {
