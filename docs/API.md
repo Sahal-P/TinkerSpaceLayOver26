@@ -284,7 +284,8 @@ no audio was sent in that initial metadata check. Initially no Firebase ADC file
 project access was verified; the Admin SDK page offers creation of a new private key, not retrieval
 of an existing credential. The approved plan excludes key creation. No service-account key, billing change, cloud
 resource, rules change or deployment was created. Local ADC and read-only Firestore access are now
-verified. Live multilingual speech and native/iPhone checks remain pending.
+verified. Synthetic English, Malayalam and Hindi live speech checks now pass; mixed-script and
+native/iPhone checks remain pending.
 [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md) contains scripts and the eight-attempt cap.
 
 Automated tests mock SDKs or intercept APIs. pnpm test:e2e runs installed Chrome and Playwright
@@ -304,7 +305,7 @@ Backend documentation additions may need a contextual merge with the UI track's 
 2026-10-11, Node 26.8.1 / pnpm 11.28.2:
 
 - lint, typecheck and production build pass.
-- Vitest: 224 tests across 26 files pass, including exact PCM silence guards.
+- Vitest: 231 tests across 27 files pass, including PCM silence, provider schema, and permanent failures.
 - Browser suite: 62 pass, two explicitly skipped WebKit microphone cases.
 - Source secret scan and built client-bundle scan found no configured key/secret values.
 - The local environment file is ignored and mode 0600.
@@ -376,5 +377,37 @@ detect speech or solve noisy/compressed silence hallucination.
 The real browser retry returned `no_speech` (request `f4839f62-3c2a-4744-b7ba-bbeeb4645d8d`),
 without a guide or demo fallback. Chrome extension upload remained unavailable because file-URL
 access is disabled; this manual upload used the in-app browser. Automated capture uses Chrome with
-a fake input device. Real Chrome acoustics, consented multilingual clips, successful live extraction,
-compressed-silence behavior, and physical iPhone Safari remain acceptance blockers.
+a fake input device. These negative checks did not verify successful speech extraction.
+The subsequent TTS checks below establish synthetic integration only; real Chrome acoustics,
+native-speaker accuracy, compressed-silence behavior and physical iPhone Safari remain pending.
+
+## Gemini TTS verification and provider-schema fix
+
+The user authorized Gemini TTS clips of the existing scripts on 2026-10-11. The four clips use
+`gemini-3.8-flash-tts`, prebuilt `Kore`, verbatim script input, and `store:false`; no voice cloning,
+new app capability, dependency, env var, cloud resource or billing change was added.
+Generation follows the [official speech API](https://ai.google.dev/gemini-api/docs/speech-generation).
+Mono WAV files (8.68–9.40 s, under 458 KB) and a hash manifest are saved outside Git in
+`/Users/sahal/.local/share/local-to-lens-verification/2026-10-11`, directory mode 0700 and files 0600.
+
+Initial speech transcriptions completed, but extraction returned opaque HTTP 400 `INVALID_ARGUMENT`.
+Reformatting nullable fields alone did not resolve it and was discarded. Omitting `maxItems` from
+the provider's generated JSON schema resolved the rejection on the next English attempt and the
+three subsequent samples. This is consistent with the documented
+[schema-complexity limitation](https://ai.google.dev/gemini-api/docs/structured-output#limitations);
+the exact internal provider reason was not supplied. All limits remain in the same Zod schemas,
+and an over-40-step model response still fails validation. Provider schemas preserve null, enums,
+required fields and `additionalProperties:false`. Output token/byte/deadline limits are unchanged.
+Provider 400/401/403/404 now returns non-retryable `service_misconfigured` without raw details.
+
+The approved follow-up used four extraction attempts (eight successful provider generation calls).
+English completed the actual in-app browser upload → review → local guide flow, displaying the
+expected bus stop, tea shop/200 m, left/bridge and arrival/clinic with an illustrative scene.
+Malayalam and Hindi real HTTP responses passed canonical schema, language, four-step order,
+landmark/distance, nullable timestamp and evidence checks. Mixed detected all three languages and
+returned schema-valid evidence with a review warning, but failed the strict four-step comparison;
+it is not a fact-accuracy pass. See the attempt ledger in [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
+
+TTS is a synthetic integration check. It does not prove faithful TTS pronunciation, native-speaker
+transcription accuracy, real Chrome microphone quality or physical Safari behavior. No guide was
+saved/published, and no raw transcript/provider error was written to the verification report.

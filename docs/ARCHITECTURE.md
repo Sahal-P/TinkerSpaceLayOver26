@@ -62,6 +62,12 @@ anchors are null for live guides. No audio/transcript persistence or automatic f
 XHR starts only from a user action, has a single active attempt, real upload progress, a 60-second
 client deadline, cancellation, and explicit retry respecting `Retry-After`.
 
+Both model stages derive their provider JSON schema from Zod. Provider schemas omit `maxItems`
+to avoid nested-array expansion failures observed in live calls; the unchanged Zod schemas enforce
+all array limits on returned output before it can enter the guide. Enum/null/required/strict-field
+constraints remain in the provider schema. Permanent provider 400/401/403/404 failures return a
+safe, non-retryable configuration error. Transient and quota errors retain their bounded behavior.
+
 The recorder uses browser MediaRecorder, mono preference/64 kbps, an encoding-safe 119-second cap,
 real audio-element playback, and complete track/context/object-URL cleanup. Media inspection is
 shared in `lib/audio-inspection.ts` and dynamically imported in the browser; the server repeats it.

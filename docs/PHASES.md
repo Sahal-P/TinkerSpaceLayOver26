@@ -76,7 +76,9 @@ Owned by the backend track. Details live in `docs/API.md`.
 - [x] Review preserves uncertainty/provenance and validates the whole guide before local navigation
 - [x] Explicit English six-stop Lisbon demo; no live fallback or simulated live Lens/publication
 - [x] Mocked Chrome/WebKit browser tests at phone/desktop sizes, themes, reduced motion and fallback
-- [ ] Controlled multilingual speech generation and native-speaker review
+- [x] Generate English, Malayalam, Hindi and mixed Gemini TTS clips outside Git
+- [x] Synthetic English browser upload → extraction → review → local guide; Malayalam/Hindi fact checks
+- [ ] Mixed TTS strict four-step comparison and native-speaker review
 - [x] Local keyless ADC token acquisition and read-only Firestore access
 - [x] Real browser negative case: digital-silence PCM rejected before Gemini, no guide/fallback
 - [ ] Physical iPhone Safari capture/playback/submission
@@ -85,8 +87,11 @@ On 2026-10-11, model metadata and a live structured transcription request reache
 The model inconsistently classified exact digital silence as speech; PCM silence is now rejected
 deterministically before provider invocation. Compressed silence and real multilingual accuracy
 remain unverified. A diagnostic second-stage request failed with safe `upstream_unavailable`.
-ADC and Firestore access are verified; live successful guide extraction and physical Safari remain
-pending. Follow [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
+ADC and Firestore access are verified. Synthetic English, Malayalam and Hindi live extraction
+passed the scripted facts after removing provider-only array-expansion limits; Zod hard limits
+remain. Mixed TTS returned a valid draft with uncertainty but failed the strict four-step comparison.
+Real microphone acoustics, native-speaker accuracy and physical Safari remain pending.
+Follow [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
 
 ## Phase 3b: Saved and shared guides (deferred)
 
