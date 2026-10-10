@@ -74,7 +74,11 @@ export function explicitDistances(text: string): number[] {
 
 export function normalizeDistance(text: string | null): number | null {
   if (!text) return null;
-  if (/\b(?:between\s+\w+|(?:\w+|\d)\s+or\s+(?:\w+|\d))\b|\d\s*(?:to|[-–])\s*\d/i.test(text)) return null;
-  const values = [...new Set(explicitDistances(text))];
+  // A scalar must not erase a range, bound, sign, estimate, or alternative.
+  const quantity = "(?:\\d+(?:[.,]\\d+)*|" + numberWords + "(?:[\\s-]+" + numberWords + "){0,10})";
+  const range = new RegExp(quantity + "\\s*(?:meters?|metres?|km|m|feet|ft|miles?)?\\s*(?:to|or|[–—])\\s*" + quantity, "i");
+  if (range.test(text) || /\d\s*-\s*\d/.test(text) || /\b(?:between|either|about|approximately|around|roughly|nearly|almost|at least|at most|no more than|no less than|less than|more than|up to|minus|negative)\b/i.test(text) ||
+      /(?<![\w])[-−+]\s*\d/.test(text) || /\b(?:over|under)\s+(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|a hundred)/i.test(text)) return null;
+  const values = explicitDistances(text);
   return values.length === 1 ? (values[0] ?? null) : null;
 }
