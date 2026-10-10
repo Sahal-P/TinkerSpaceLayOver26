@@ -1,8 +1,8 @@
 # Architecture
 
 Local to Lens is a single Next.js App Router application. The product is built **UI-first**: the
-complete journey runs on typed mock fixtures (Phase 1), while a separate backend track builds the
-server pipeline against an agreed contract. Server Components render static structure, and client
+landing and 3D foundation remain, while the integrated flow uses real audio and canonical backend
+contracts. An explicit, isolated demo uses an English script of the Lisbon example. Server Components render static structure, and client
 components own interaction, animation and the 3D scene. Server-only modules own every secret and SDK.
 
 ## Layers
@@ -48,31 +48,38 @@ app → features → components, lib, config, server
 | `/g/[id]`     | Public guide (planned; server-rendered from the backend contract)       | Dynamic   |
 
 The flow routes share `app/(flow)/layout.tsx` (journey state + header with back, progress and close)
-and `app/(flow)/template.tsx` (a soft entrance on every navigation). Every screen works when opened
-directly, because the state starts from the demo journey. There are no dead ends: each screen has
+and `app/(flow)/template.tsx` (a soft entrance on every navigation). Direct entry with empty state offers recording or explicit demo selection. Live guides require
+review; reload clears temporary state. There are no dead ends: each screen has
 Back, a forward action, and the 404 page links home. The landing page's photo cards deep-link into the
 guide with `/guide?step=N`. A tiny client leaf reads the query inside `<Suspense>`, so the page stays
 static.
 
 ## Journey state
 
-`features/journey/journey-store.tsx` holds the flow state in a reducer: language hint, recording,
-edited steps, confirmation, guide position, arrival and Lens results. It lives in the `(flow)` layout,
-so it survives navigation between screens and resets on a full reload. The reducer is pure and unit
-tested. Persistence arrives with the backend phases.
+`features/journey/journey-store.tsx` stores one canonical `GuideDraft`, a temporary audio clip,
+consent, request state, review state, and navigation. `presentation.ts` derives display-only steps;
+anchors are null for live guides. No audio/transcript persistence or automatic fixture fallback exists.
+XHR starts only from a user action, has a single active attempt, real upload progress, a 60-second
+client deadline, cancellation, and explicit retry respecting `Retry-After`.
 
-## Contract with the backend track
+The recorder uses browser MediaRecorder, mono preference/64 kbps, an encoding-safe 119-second cap,
+real audio-element playback, and complete track/context/object-URL cleanup. Media inspection is
+shared in `lib/audio-inspection.ts` and dynamically imported in the browser; the server repeats it.
+Upload controls wait for hydration so early WebKit file events are not lost. Audio stays in memory
+for retry and is released on success/reset/flow exit.
 
-The backend track will publish a client-safe Zod contract in `src/contracts/guide.ts`. The agreed shape:
+## Canonical contracts and review
 
-- Steps carry `direction` (including `unknown`), `incline`, `landmark {spoken, label}`,
-  `distance {spoken, meters}`, `confidence`, `warnings`, `needsReview` and `reviewed`.
-- Provenance: `source: "audio"` with exact quotes as evidence; `source: "user"` with `evidence: null`.
-- Publishing requires `acknowledgeWarnings: true` while warnings remain.
+`contracts/guide.ts` owns domain schemas and inferred types. UI schemas convert HTML form values,
+including blank fields to null; they do not duplicate persisted contracts. Unknown directions,
+separate inclines, original/English transcripts and nullable timestamps remain intact.
+Acknowledgement does not change confidence or warnings. Semantic edits and reordered steps use
+user provenance without audio evidence. Whole-guide validation and explicit warning acknowledgement
+precede Guide; unsaved or invalid editors cannot confirm. No city, identity, GPS, total-route distance,
+or walking time is inferred. The unchanged island is an illustrative sequence, not a map.
 
-The UI's `features/journey/schemas.ts` is a view-model for the mock phase. During integration it
-maps from the contract instead of the fixtures. UI-only fields such as the 3D `anchor` and walking
-time estimates are never stored.
+Live Lens and Share show unavailable states. Their explicit demo previews do not publish or analyze
+real guides. Save/publish endpoints remain installed for a later approved phase. See [API.md](API.md).
 
 ## 3D scene
 
@@ -165,8 +172,8 @@ JourneyScene (client, main bundle)      2D RouteSketch fallback, WebGL detection
   - `X-Frame-Options: DENY`
   - `Permissions-Policy` allowing camera and microphone for our own origin only
   - no `X-Powered-By`
-- **Mock phase:** nothing leaves the device. Lens photos are previewed with local object URLs and
-  revoked; no audio is captured.
+- **Audio:** consented processing sends inline audio to Gemini through the server. Audio is not saved.
+  Demo Lens photos remain local, with revoked object URLs. Live Lens is unavailable.
 - **Secrets:** server-only, validated, never logged. Supply-chain protections come from pnpm (see AGENTS.md).
 - **Planned:**
   - nonce-based CSP

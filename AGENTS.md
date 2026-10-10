@@ -12,9 +12,11 @@ with the camera (Lens check), and shares the guide. Expect most use on a phone, 
 
 ## Current phase
 
-**Phase 1, Premium UI and immersive 3D.** The full journey (Record → Shape → Review → Guide → Lens
-check → Share) runs on typed mock fixtures. There are no Gemini calls, no Firebase operations and no
-real recording pipeline. Implement only the phase you are asked to.
+**Phase 3a, Backend integration and real audio.** The default flow captures/uploads Malayalam,
+Hindi, English, or mixed audio, extracts a canonical draft, and reviews it into a temporary local guide.
+An explicitly selected English demo preserves the Lisbon scene. Save/publish APIs are installed,
+but their UI, public guide pages, and real Lens analysis are deferred. Live Firebase access and native
+speech/iPhone verification remain acceptance prerequisites. Implement only the approved phase.
 
 ## Ownership
 
@@ -32,6 +34,7 @@ pnpm lint          # ESLint
 pnpm typecheck     # next typegen + tsc --noEmit
 pnpm test          # Vitest, single run (pnpm test:watch to watch)
 pnpm build         # production build
+pnpm test:e2e      # Chrome and WebKit, mocked APIs
 ```
 
 **Definition of done:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build` all pass, the change
@@ -183,7 +186,7 @@ src/
   `// @vitest-environment jsdom`. `vitest.setup.ts` stubs `server-only` and the layout observers.
 - Query by role and name with Testing Library. Content behind `AnimatePresence` appears asynchronously:
   use `findBy*`.
-- Mock SDK modules and never call real services. Keep fixtures valid against their schemas
+- Mock SDK modules and never call real services in automated tests. Controlled manual checks use the bounded procedure in `docs/AUDIO-VERIFICATION.md`. Keep fixtures valid against their schemas
   (`fixtures.test.ts`).
 
 ### Dependencies
@@ -198,3 +201,13 @@ src/
 2. Keep changes inside the current phase and your track. Ask before expanding scope.
 3. Update `docs/ARCHITECTURE.md` when adding a layer, service, or rule. Tick items in `docs/PHASES.md`.
 4. Run the Definition of done. Never commit secrets, and only commit when asked.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

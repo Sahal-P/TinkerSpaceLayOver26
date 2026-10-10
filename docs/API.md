@@ -246,15 +246,49 @@ Before production integration, evaluate actual multilingual/code-switched record
 speakers, verify real credentials/IAM and perform a controlled extraction/save/publish/unpublish
 smoke test. Automated tests never call live services.
 
-Latest local verification (2026-10-10): lint, typecheck and 118 tests pass. The production build
-also passes with service environment values removed. A built-server HTTP smoke check verified
-404/correlation/no-store for an invalid guide ID and 405 for GET on extraction. Browser checks
-at phone/desktop sizes in light/dark could not run: both available browser connections blocked
-the local backend URL. No UI changes were made in this track.
+## Integrated frontend (2026-10-11)
 
-The user-provided Gemini key is configured only in the ignored, mode-0600 local environment file.
-Its live validity is not verified. No local Firebase ADC credentials were present, so a complete
-live extraction/save/publish flow and native-speaker evaluation remain pending.
+The default flow is recording/upload → extraction → review → temporary local guide. A separate,
+explicit English Lisbon demo sends no audio or service requests. SDKs remain server-only.
+Canonical guide state is the only domain source; UI presentation and form conversions are derived.
+Blank landmark/distance values remain null; explicit zero/decimals are preserved, and unavailable
+timestamps are hidden. No inferred metadata, GPS, total route length or walking-time estimates.
+
+MediaRecorder selects supported WebM/Opus, MP4/AAC or Ogg/Opus at approximately 64 kbps/mono,
+stopping at 119 s for finalization headroom. Upload accepts verified audio-only containers, including
+MP4 files declared as video/octet-stream by the browser; MIME is normalized only after inspection.
+The same bounded parser is reused server-side, with the server authoritative. Object URLs, tracks,
+contexts and parser resources are cleaned up. Audio stays in memory for retry, never localStorage.
+
+Shape is an explicit XHR submission with same-origin cookies and no manual multipart Content-Type.
+Upload progress is real; Gemini processing is indeterminate because the endpoint is synchronous.
+Only a validated complete response reveals content. One attempt is active; cancellation/navigation
+abort it and stale results are ignored. Retries require a user action and honor Retry-After.
+Local transport errors use network_error, invalid_response or cancelled without exposing raw errors.
+Consent revocation blocks subsequent submissions.
+
+Acknowledgement preserves confidence, warnings and needsReview. Edited/reordered facts use
+source:user/evidence:null; new steps enter only after valid form submission. Open editors prevent
+confirmation, and the whole guide must pass reviewedGuideSchema. Warning acknowledgement is
+explicit. Original evidence is consumed in source order, so one occurrence cannot support duplicates.
+Negated assertions fail grounding; estimates, bounds, signed values, ranges and multiple references
+retain null meters. Grounding still establishes transcript consistency, not real-world accuracy.
+
+Save/publish APIs are installed but not called by this phase's UI. Live Lens/Share show unavailable
+states. Reload loses the local guide. The scene remains supplementary, explicitly illustrative,
+with live anchors null and no persistence of scene information.
+
+Run locally with APP_ORIGIN=http://localhost:3210 and pnpm dev --port 3210. Configure secrets only
+in the ignored local env file or approved runtime. The supplied key/model metadata read succeeded;
+no audio was sent. No Firebase ADC file was found, and the opened Chrome Firebase tab could not be
+inspected because the browser connection failed. No service-account key, billing change, cloud
+resource, rules change or deployment was created. Generation/live IAM and native/iPhone checks
+remain pending. [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md) contains scripts and the eight-attempt cap.
+
+Automated tests mock SDKs or intercept APIs. pnpm test:e2e runs installed Chrome and Playwright
+WebKit at 375×812 and 1440×900; install prerequisites with pnpm exec playwright install chrome webkit.
+Chromium microphone tests use fake input. WebKit microphone cases are explicitly skipped pending
+physical iPhone verification; WebKit upload and actual media playback are exercised.
 
 ## Parallel-track handoff
 
@@ -262,3 +296,17 @@ This branch uses an isolated staged-foundation seed because the main checkout ha
 Integrate only the backend review commit after the UI track has its baseline; do not integrate the
 seed. Preserve the UI's dependency entries when adding `mediabunny@1.61.3`.
 Backend documentation additions may need a contextual merge with the UI track's docs.
+
+## Final automated verification
+
+2026-10-11, Node 26.8.1 / pnpm 11.28.2:
+
+- lint, typecheck and production build pass.
+- Vitest: 207 tests across 25 files pass.
+- Browser suite: 50 pass, two explicitly skipped WebKit microphone cases.
+- Source secret scan and built client-bundle scan found no configured key/secret values.
+- The local environment file is ignored and mode 0600.
+
+These tests establish container validation, canonical data handling and UI behavior with mock AI
+responses. They do not establish multilingual transcription accuracy, production Firestore IAM,
+real microphone acoustics or physical iPhone behavior. No live extraction attempts were made.

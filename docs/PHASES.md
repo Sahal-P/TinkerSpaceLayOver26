@@ -66,39 +66,27 @@ Owned by the backend track. Details live in `docs/API.md`.
   transcripts, evidence and audio.
 - Client-safe contract in `src/contracts/guide.ts`.
 
-## Phase 3: Integration
+## Phase 3a: Backend integration and real audio (code complete; live acceptance pending)
 
-Goal: real recordings produce real, shareable guides.
+- [x] UI baseline `c14cd4c`; backend review `f8752e8` cherry-picked as `8be28b6` without its seed
+- [x] Canonical guide state, nullable values, full direction/incline vocabulary, and display-only anchors
+- [x] Conservative distance/negation guards and non-reusable exact evidence occurrences
+- [x] Real recording/upload, 4 MiB/2–120 s validation, playback, consent, and resource cleanup
+- [x] Real XHR upload progress, validated extraction responses, cancellation and bounded explicit retries
+- [x] Review preserves uncertainty/provenance and validates the whole guide before local navigation
+- [x] Explicit English six-stop Lisbon demo; no live fallback or simulated live Lens/publication
+- [x] Mocked Chrome/WebKit browser tests at phone/desktop sizes, themes, reduced motion and fallback
+- [ ] Controlled multilingual speech generation and native-speaker review
+- [ ] Firebase ADC/IAM access and physical iPhone Safari capture/playback/submission
 
-- Bring in the backend review commit `f8752e8` from `feature/ai-backend` after the user approves
-  integration. Do not bring in the seed `5a96750`. Add `mediabunny@1.61.3` and keep the UI packages.
-- Map the UI view-models to `src/contracts/guide.ts`:
-  - nullable distances
-  - `unknown` direction (always low confidence with `needsReview`) and `incline`
-  - `source: "user"` with `evidence: null` for edited or reordered facts
-- Review semantics: `reviewed: true` means the traveler acknowledged the step, not that it was
-  resolved.
-  - **Confirm anyway** sets `reviewed: true` on every step and keeps `confidence`, `warnings` and
-    `needsReview`.
-  - A genuine correction of the flagged fact clears only that warning and recomputes `needsReview`.
-  - A cosmetic edit clears nothing.
-  - Save sends `confirmed: true`. Publish sends `acknowledgeWarnings: true` while any warning remains.
-  - The mock store currently treats any edit as resolving a step; replace that with an explicit
-    "resolve" action.
-- Real recording with `MediaRecorder`:
-  - mono, about 64 kbps, 2–120 s, consent required
-  - upload with XHR progress; abort the client after about 60 s with retry
-- Processing screen driven by the real request (hold the last stage until the response arrives) and
-  the error codes.
-- Public guide page `/g/[id]`: server-rendered through `getPublishedGuide`, `noindex`, QR from the
-  publish URL.
-- Playwright end-to-end tests for the full flow.
+Gemini model metadata access succeeded with the configured server key on 2026-10-11; generation
+and quota access remain unverified. Follow [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
 
-Open decisions:
+## Phase 3b: Saved and shared guides (deferred)
 
-- Real Lens check (on-device versus a Gemini vision call).
-- Offline handling.
-- Guide editing after publishing.
+Wire confirmed saves, publishing/revocation, canonical share URLs/QR, and `/g/[id]` through the
+installed repositories. Keep owner/public projection boundaries and warning acknowledgement.
+Real Lens analysis, offline handling and post-publication editing require separate scope decisions.
 
 ## Phase 4: Hardening and launch
 
