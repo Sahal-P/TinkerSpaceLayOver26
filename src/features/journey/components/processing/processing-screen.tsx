@@ -79,8 +79,8 @@ export function ProcessingScreen() {
         ) : null}
         {state.extraction.status === "processing" ? (
           <p role="status" className="mt-8 text-sm text-ink-muted">
-            Gemini is processing the clip. Results appear when both stages
-            finish.
+            The server is validating and processing the clip. Results appear
+            when both Gemini stages finish.
           </p>
         ) : null}
         {pending ? (

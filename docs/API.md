@@ -280,8 +280,9 @@ with live anchors null and no persistence of scene information.
 
 Run locally with APP_ORIGIN=http://localhost:3210 and pnpm dev --port 3210. Configure secrets only
 in the ignored local env file or approved runtime. The supplied key/model metadata read succeeded;
-no audio was sent. No Firebase ADC file was found, and the opened Chrome Firebase tab could not be
-inspected because the browser connection failed. No service-account key, billing change, cloud
+no audio was sent. No Firebase ADC file was found. After reconnecting the owner Chrome profile,
+project access was verified; the Admin SDK page offers creation of a new private key, not retrieval
+of an existing credential. The approved plan excludes key creation. No service-account key, billing change, cloud
 resource, rules change or deployment was created. Generation/live IAM and native/iPhone checks
 remain pending. [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md) contains scripts and the eight-attempt cap.
 
@@ -302,11 +303,33 @@ Backend documentation additions may need a contextual merge with the UI track's 
 2026-10-11, Node 26.8.1 / pnpm 11.28.2:
 
 - lint, typecheck and production build pass.
-- Vitest: 207 tests across 25 files pass.
-- Browser suite: 50 pass, two explicitly skipped WebKit microphone cases.
+- Vitest: 209 tests across 25 files pass.
+- Browser suite: 62 pass, two explicitly skipped WebKit microphone cases.
 - Source secret scan and built client-bundle scan found no configured key/secret values.
 - The local environment file is ignored and mode 0600.
 
 These tests establish container validation, canonical data handling and UI behavior with mock AI
 responses. They do not establish multilingual transcription accuracy, production Firestore IAM,
-real microphone acoustics or physical iPhone behavior. No live extraction attempts were made.
+real microphone acoustics or physical iPhone behavior. One manual real-endpoint upload of a synthetic two-second silence fixture returned storage_unavailable
+before Gemini invocation. No speech or audio was sent to Gemini.
+
+## Resumed web and Firebase verification
+
+On 2026-10-11, connected Chrome profiles initially showed accounts without local-to-lens access.
+The owner account sahal.connect@gmail.com was absent from their account switchers. After reconnecting the correct profile, the project was visible under sahal.connect@gmail.com,
+with Spark billing and Analytics disabled. Earlier native screen capture was unavailable. Web configuration does not provide Admin credentials; use approved ADC or an existing
+credential file. No key creation, billing changes or Firebase settings changes were performed.
+
+The actual browser upload accepted the synthetic silence WAV and reached the installed endpoint.
+It failed closed at Firestore rate-limit storage with a safe storage_unavailable response and
+request ID fa65edb7-6bce-474a-8569-1e2c2131360b. No model call, saved guide or mock fallback occurred.
+This is a configuration-failure smoke check, not live transcription acceptance.
+
+Recorder replacements clear the previous selected/retry clip even when the new file is invalid.
+Obsolete recorder data events cannot stop a newer recorder; validation cancellation ignores late
+results. Additional browser coverage verifies denied permission and network failure recovery.
+
+The connected owner profile now exposes Firebase Admin SDK settings for the existing service account.
+Choosing keyless ADC setup, providing an existing credential file, or explicitly changing scope to
+a new service-account key is required before live extraction. Restart the local server after
+credential configuration. No credential contents were read or logged from Chrome.

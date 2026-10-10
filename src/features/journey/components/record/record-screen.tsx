@@ -57,6 +57,14 @@ export function RecordScreen() {
   );
   const clip = recorder.clip;
   const seconds = (clip?.durationMs ?? recorder.elapsedMs) / 1000;
+  const clearPreviousClip = () => {
+    audio.current?.pause();
+    dispatch({ type: "clip/clear" });
+    dispatch({ type: "consent/set", consent });
+    setPlaying(false);
+    setPlayhead(0);
+    setPlaybackError(null);
+  };
   const reset = () => {
     audio.current?.pause();
     recorder.reset();
@@ -217,6 +225,7 @@ export function RecordScreen() {
                     recording={false}
                     disabled={!consent || !hydrated}
                     onClick={() => {
+                      clearPreviousClip();
                       void recorder.start(consent);
                     }}
                   />
@@ -302,8 +311,7 @@ export function RecordScreen() {
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) {
-                setPlaybackError(null);
-                setPlayhead(0);
+                clearPreviousClip();
                 recorder.upload(file);
               }
               event.target.value = "";

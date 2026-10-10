@@ -80,7 +80,8 @@ Owned by the backend track. Details live in `docs/API.md`.
 - [ ] Firebase ADC/IAM access and physical iPhone Safari capture/playback/submission
 
 Gemini model metadata access succeeded with the configured server key on 2026-10-11; generation
-and quota access remain unverified. Follow [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
+and quota access remain unverified. A real-endpoint synthetic upload failed safely at the Firestore
+rate-limit check because Admin access remains unavailable; no model call occurred. Follow [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
 
 ## Phase 3b: Saved and shared guides (deferred)
 

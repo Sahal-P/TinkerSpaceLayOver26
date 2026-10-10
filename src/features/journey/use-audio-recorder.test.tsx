@@ -170,3 +170,39 @@ describe("actual recorder lifecycle", () => {
     expect(result.current.phase).toBe("idle");
   });
 });
+
+describe("recording replacement races", () => {
+  it("ignores data from an obsolete recorder without stopping its replacement", async () => {
+    const { result } = renderHook(() => useAudioRecorder(null));
+    await act(() => result.current.start(true));
+    const old = FakeRecorder.instances[0];
+    act(() => result.current.reset());
+    await act(() => result.current.start(true));
+    act(() =>
+      old?.ondataavailable?.({
+        data: new Blob([new Uint8Array(MAX_AUDIO_BYTES + 1)]),
+      }),
+    );
+    expect(FakeRecorder.instances[1]?.state).toBe("recording");
+    expect(result.current.phase).toBe("recording");
+  });
+  it("cancels validation on reset and ignores a late completed clip", async () => {
+    let complete: (clip: unknown) => void = () => undefined;
+    prepare.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useAudioRecorder(null));
+    act(() => result.current.upload(new File(["test"], "test.wav")));
+    const signal = prepare.mock.calls[0]?.[1] as AbortSignal;
+    act(() => result.current.reset());
+    expect(signal.aborted).toBe(true);
+    await act(async () => {
+      complete({ file: new File(["test"], "late.wav"), durationMs: 3000 });
+    });
+    expect(result.current.phase).toBe("idle");
+    expect(result.current.clip).toBeNull();
+  });
+});

@@ -163,10 +163,11 @@ export function useAudioRecorder(
       let bytes = 0;
       let failure = false;
       current.ondataavailable = (event) => {
+        if (!mounted.current || id !== operation.current) return;
         bytes += event.data.size;
         if (bytes > MAX_AUDIO_BYTES) {
           failure = true;
-          stop();
+          if (current.state === "recording") current.stop();
           return;
         }
         if (event.data.size > 0) chunks.push(event.data);

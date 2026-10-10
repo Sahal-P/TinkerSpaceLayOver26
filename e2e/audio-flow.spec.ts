@@ -309,3 +309,78 @@ test("explicit demo, empty refresh, themes, overflow and no-WebGL fallback", asy
     ),
   ).toBe(true);
 });
+
+test("permission denial offers upload without pretending to record", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: async () => {
+          throw new DOMException("private device details", "NotAllowedError");
+        },
+      },
+    });
+  });
+  await page.goto("/record");
+  await page
+    .getByRole("checkbox", { name: /permission to record and send/ })
+    .check();
+  await page.getByRole("button", { name: "Start recording" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "Microphone permission was denied",
+  );
+  await expect(
+    page.getByRole("button", { name: "Stop recording" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Upload audio" }),
+  ).toBeEnabled();
+});
+
+test("network failure and retry never substitute a demo", async ({ page }) => {
+  await page.route("**/api/directions/extract", (route) =>
+    route.abort("failed"),
+  );
+  await selectClip(page);
+  await page.getByRole("button", { name: "Shape my route" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "connection failed",
+  );
+  await expect(page.getByRole("link", { name: "Review my route" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("button", { name: "Retry this clip" }),
+  ).toBeEnabled();
+});
+
+test("replacing a failed clip with an invalid file clears the old retry source", async ({
+  page,
+}) => {
+  await page.route("**/api/directions/extract", (route) =>
+    route.abort("failed"),
+  );
+  await selectClip(page);
+  await page.getByRole("button", { name: "Shape my route" }).click();
+  await page
+    .getByRole("link", { name: "Record or choose another clip" })
+    .click();
+  await expect(page.getByLabel("Upload directions audio")).toBeEnabled();
+  await page.getByLabel("Upload directions audio").setInputFiles({
+    name: "corrupt.wav",
+    mimeType: "audio/wav",
+    buffer: Buffer.from("corrupt"),
+  });
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "not a valid supported audio clip",
+  );
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Start with a recording." }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Retry this clip" }),
+  ).toHaveCount(0);
+});
