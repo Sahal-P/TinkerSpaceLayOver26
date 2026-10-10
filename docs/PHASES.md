@@ -77,11 +77,16 @@ Owned by the backend track. Details live in `docs/API.md`.
 - [x] Explicit English six-stop Lisbon demo; no live fallback or simulated live Lens/publication
 - [x] Mocked Chrome/WebKit browser tests at phone/desktop sizes, themes, reduced motion and fallback
 - [ ] Controlled multilingual speech generation and native-speaker review
-- [ ] Firebase ADC/IAM access and physical iPhone Safari capture/playback/submission
+- [x] Local keyless ADC token acquisition and read-only Firestore access
+- [x] Real browser negative case: digital-silence PCM rejected before Gemini, no guide/fallback
+- [ ] Physical iPhone Safari capture/playback/submission
 
-Gemini model metadata access succeeded with the configured server key on 2026-10-11; generation
-and quota access remain unverified. A real-endpoint synthetic upload failed safely at the Firestore
-rate-limit check because Admin access remains unavailable; no model call occurred. Follow [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
+On 2026-10-11, model metadata and a live structured transcription request reached Gemini.
+The model inconsistently classified exact digital silence as speech; PCM silence is now rejected
+deterministically before provider invocation. Compressed silence and real multilingual accuracy
+remain unverified. A diagnostic second-stage request failed with safe `upstream_unavailable`.
+ADC and Firestore access are verified; live successful guide extraction and physical Safari remain
+pending. Follow [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md).
 
 ## Phase 3b: Saved and shared guides (deferred)
 
@@ -100,5 +105,5 @@ Real Lens analysis, offline handling and post-publication editing require separa
 
 The isolated backend review commit `f8752e8` is integrated on `feat/backend-integration`.
 Only its review changes were applied; the foundation seed was excluded.
-Gemini extraction and Firestore APIs are installed; frontend wiring is the next integration step.
+Gemini extraction and Firestore APIs are installed; the temporary local journey is wired.
 See [API.md](API.md) for canonical contracts and verification limits.

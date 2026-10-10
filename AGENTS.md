@@ -15,8 +15,9 @@ with the camera (Lens check), and shares the guide. Expect most use on a phone, 
 **Phase 3a, Backend integration and real audio.** The default flow captures/uploads Malayalam,
 Hindi, English, or mixed audio, extracts a canonical draft, and reviews it into a temporary local guide.
 An explicitly selected English demo preserves the Lisbon scene. Save/publish APIs are installed,
-but their UI, public guide pages, and real Lens analysis are deferred. Live Firebase access and native
-speech/iPhone verification remain acceptance prerequisites. Implement only the approved phase.
+but their UI, public guide pages, and real Lens analysis are deferred. Local keyless ADC and Firestore
+access are verified; native speech/iPhone verification remains an acceptance prerequisite.
+Implement only the approved phase.
 
 ## Ownership
 

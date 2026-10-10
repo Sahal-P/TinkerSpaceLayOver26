@@ -51,4 +51,24 @@ Expected: no_speech or not_directions, with no guide and no demo fallback.
 7. Reset and reload. Verify microphone tracks stopped and temporary audio/guide state cleared.
 
 Record only date/browser/container, pass/fail against expected facts, safe error code, and request ID.
-Missing ADC, consented speech clips, reachable HTTPS, or a connected iPhone keeps live acceptance pending.
+Missing consented speech clips, reachable HTTPS, or a connected iPhone keeps live acceptance pending.
+
+## Recorded checks (2026-10-11)
+
+Local keyless ADC token acquisition and a read-only Firestore probe succeeded. No credential,
+document content, transcript, or personal recording was printed or committed.
+
+| Extraction attempt | Input / path | Result |
+| --- | --- | --- |
+| 1 | Synthetic two-second WAV, browser, before ADC | `storage_unavailable`; no model call; request `fa65edb7-6bce-474a-8569-1e2c2131360b` |
+| 2 | Same exact-silence WAV, browser, after ADC | `unsupported_language`; model reached; no guide; request `ff778c57-0fe8-4325-83d4-0436fd81186a` |
+| 3 | One bounded server diagnostic replay | Transcription incorrectly marked silence as English speech; extraction failed `upstream_unavailable`; no guide |
+| 4 | Same WAV, real browser endpoint after guard | `no_speech` before Gemini; no guide/fallback; request `f4839f62-3c2a-4744-b7ba-bbeeb4645d8d` |
+
+Only structural metadata was inspected during the diagnostic; no model transcript was logged.
+Exact digital silence in PCM now has a deterministic guard. Compressed silence, ambient noise,
+real multilingual accuracy and successful live guide extraction still require controlled checks.
+The manual uploads used the in-app browser because Chrome extension file-URL upload access is off.
+The automated Chrome recorder checks use fake input; they do not verify microphone acoustics.
+Four of the eight initial extraction attempts are recorded above. Use the remaining budget for
+consented speech samples, then review results before authorizing a further verification batch.

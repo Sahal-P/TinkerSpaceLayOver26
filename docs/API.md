@@ -280,11 +280,12 @@ with live anchors null and no persistence of scene information.
 
 Run locally with APP_ORIGIN=http://localhost:3210 and pnpm dev --port 3210. Configure secrets only
 in the ignored local env file or approved runtime. The supplied key/model metadata read succeeded;
-no audio was sent. No Firebase ADC file was found. After reconnecting the owner Chrome profile,
+no audio was sent in that initial metadata check. Initially no Firebase ADC file was found. After reconnecting the owner Chrome profile,
 project access was verified; the Admin SDK page offers creation of a new private key, not retrieval
 of an existing credential. The approved plan excludes key creation. No service-account key, billing change, cloud
-resource, rules change or deployment was created. Generation/live IAM and native/iPhone checks
-remain pending. [AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md) contains scripts and the eight-attempt cap.
+resource, rules change or deployment was created. Local ADC and read-only Firestore access are now
+verified. Live multilingual speech and native/iPhone checks remain pending.
+[AUDIO-VERIFICATION.md](AUDIO-VERIFICATION.md) contains scripts and the eight-attempt cap.
 
 Automated tests mock SDKs or intercept APIs. pnpm test:e2e runs installed Chrome and Playwright
 WebKit at 375×812 and 1440×900; install prerequisites with pnpm exec playwright install chrome webkit.
@@ -303,15 +304,16 @@ Backend documentation additions may need a contextual merge with the UI track's 
 2026-10-11, Node 26.8.1 / pnpm 11.28.2:
 
 - lint, typecheck and production build pass.
-- Vitest: 209 tests across 25 files pass.
+- Vitest: 224 tests across 26 files pass, including exact PCM silence guards.
 - Browser suite: 62 pass, two explicitly skipped WebKit microphone cases.
 - Source secret scan and built client-bundle scan found no configured key/secret values.
 - The local environment file is ignored and mode 0600.
 
 These tests establish container validation, canonical data handling and UI behavior with mock AI
 responses. They do not establish multilingual transcription accuracy, production Firestore IAM,
-real microphone acoustics or physical iPhone behavior. One manual real-endpoint upload of a synthetic two-second silence fixture returned storage_unavailable
-before Gemini invocation. No speech or audio was sent to Gemini.
+real microphone acoustics or physical iPhone behavior. The initial manual real-endpoint upload of a
+synthetic two-second silence fixture returned `storage_unavailable` before Gemini invocation.
+Later approved ADC checks and real silence requests are recorded below; no personal speech was sent.
 
 ## Resumed web and Firebase verification
 
@@ -329,10 +331,9 @@ Recorder replacements clear the previous selected/retry clip even when the new f
 Obsolete recorder data events cannot stop a newer recorder; validation cancellation ignores late
 results. Additional browser coverage verifies denied permission and network failure recovery.
 
-The connected owner profile now exposes Firebase Admin SDK settings for the existing service account.
-Choosing keyless ADC setup, providing an existing credential file, or explicitly changing scope to
-a new service-account key is required before live extraction. Restart the local server after
-credential configuration. No credential contents were read or logged from Chrome.
+The connected owner profile exposes Firebase Admin SDK settings for the existing service account.
+The user chose keyless ADC; setup is complete as described below. No credential contents were
+read or logged from Chrome.
 
 ## Keyless ADC setup status
 
@@ -344,12 +345,36 @@ No application dependencies or cloud resources were added for this setup.
 
 ADC sign-in requests only OpenID, account email, and Google Cloud platform scopes for
 `sahal.connect@gmail.com`, with `local-to-lens` as the quota project. This does not enable billing.
-Google requires a user-completed identity verification before authorization. No ADC credential
-file is present yet; no private key was generated. The CLI is waiting for the localhost callback.
-Google configuration directory permissions are 0700; a completed ADC file will be protected as 0600.
+The user completed Google's identity verification and authorization. The CLI finished successfully;
+ADC is an `authorized_user` credential with the expected account and quota project. It is saved
+outside the repository at `~/.config/gcloud/application_default_credentials.json`, mode 0600;
+the Google configuration directory is 0700. No service-account private key was generated.
 OAuth URLs and callback values are kept out of chat, application logs and repository files.
 
-After the user completes Google authorization, verify ADC token acquisition and a read-only
-Firestore probe through `getDb()`, then restart the integration server and perform the bounded
-manual audio check. User-account ADC is for local development; deployment should use an attached
-runtime identity. Do not commit or copy refresh-token contents into `.env` files or documentation.
+ADC token acquisition and a read-only Firestore probe through `getDb()` both succeeded. The server
+was restarted at `http://localhost:3210`. No document data or token values were printed by those
+probes. Extraction requests subsequently passed the atomic Firestore rate-limit check.
+User-account ADC is for local development; deployment should use an attached runtime identity.
+Do not commit or copy refresh-token contents into `.env` files or documentation.
+
+## Live negative-case findings and fix
+
+An actual browser upload of the exact-silence WAV reached Gemini and returned
+`unsupported_language` (request `ff778c57-0fe8-4325-83d4-0436fd81186a`). No guide/fallback appeared.
+A single diagnostic replay inspected only structural metadata: Gemini reported speech, one English
+segment, and a completed transcription. The next model stage failed with safe `upstream_unavailable`.
+No transcript or raw provider error was logged. This demonstrates that source consistency alone
+cannot establish audio transcription truth.
+
+The existing media inspector now checks every PCM packet for exact digital silence, including
+signed integer zero, float positive/negative zero, and unsigned 8-bit midpoint. One nonzero sample
+prevents this classification; there is no amplitude threshold. The pipeline rejects confirmed
+digital silence with `no_speech` before Gemini, within the existing deadlines and disposal behavior.
+Compressed bytes are never classified as silent without decoding. This guard does not claim to
+detect speech or solve noisy/compressed silence hallucination.
+
+The real browser retry returned `no_speech` (request `f4839f62-3c2a-4744-b7ba-bbeeb4645d8d`),
+without a guide or demo fallback. Chrome extension upload remained unavailable because file-URL
+access is disabled; this manual upload used the in-app browser. Automated capture uses Chrome with
+a fake input device. Real Chrome acoustics, consented multilingual clips, successful live extraction,
+compressed-silence behavior, and physical iPhone Safari remain acceptance blockers.

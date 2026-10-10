@@ -65,6 +65,9 @@ client deadline, cancellation, and explicit retry respecting `Retry-After`.
 The recorder uses browser MediaRecorder, mono preference/64 kbps, an encoding-safe 119-second cap,
 real audio-element playback, and complete track/context/object-URL cleanup. Media inspection is
 shared in `lib/audio-inspection.ts` and dynamically imported in the browser; the server repeats it.
+For PCM, every packet is checked for exact digital silence (signed/float zero or unsigned midpoint).
+The server rejects confirmed digital silence with `no_speech` before Gemini. This is not speech
+detection: compressed audio, quiet speech, ambient noise, and nonzero signals still rely on Gemini.
 Upload controls wait for hydration so early WebKit file events are not lost. Audio stays in memory
 for retry and is released on success/reset/flow exit.
 
@@ -177,6 +180,8 @@ JourneyScene (client, main bundle)      2D RouteSketch fallback, WebGL detection
 - **Secrets:** server-only, validated, never logged. Supply-chain protections come from pnpm (see AGENTS.md).
 - **Planned:**
   - nonce-based CSP
-  - rate limiting for the anonymous extraction endpoint
-  - Firestore rules denying client access
   - `noindex` on public guides
+
+Atomic Firestore limits protect extraction, guide mutations and published reads; unavailable
+protection fails closed. Client Firestore rules deny all access. Local development now uses approved
+user-account ADC outside Git; deployment must use an approved attached runtime identity.
