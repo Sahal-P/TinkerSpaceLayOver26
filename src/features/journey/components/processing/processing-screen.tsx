@@ -1,5 +1,5 @@
 "use client";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -71,17 +71,27 @@ export function ProcessingScreen() {
           ))}
         </ol>
         {state.extraction.status === "uploading" ? (
-          <ProgressBar
-            className="mt-8"
-            value={state.extraction.progress}
-            label="Upload progress"
-          />
+          <div className="mt-8" role="status">
+            <div className="flex items-center gap-3 text-accent-ink">
+              <LoaderCircle aria-hidden className="size-6 motion-safe:animate-spin" />
+              <span className="text-sm">Uploading your recording…</span>
+            </div>
+            <ProgressBar className="mt-4" value={state.extraction.progress} label="Upload progress" />
+          </div>
         ) : null}
         {state.extraction.status === "processing" ? (
-          <p role="status" className="mt-8 text-sm text-ink-muted">
-            The server is validating and processing the clip. Results appear
-            when both Gemini stages finish.
-          </p>
+          <div className="mt-8" role="status">
+            <div className="flex items-center gap-3 text-accent-ink">
+              <LoaderCircle aria-hidden className="size-6 motion-safe:animate-spin" />
+              <span className="text-sm">Shaping your directions…</span>
+            </div>
+            <div role="progressbar" aria-label="Processing audio" aria-valuetext="Processing; completion time is unknown" className="mt-4 h-0.5 overflow-hidden rounded-full bg-line">
+              <span aria-hidden className="block h-full w-1/3 origin-left bg-accent-ink motion-safe:animate-processing" />
+            </div>
+            <p className="mt-4 text-sm text-ink-muted">
+              Validating and processing the clip. Results appear when both Gemini stages finish.
+            </p>
+          </div>
         ) : null}
         {pending ? (
           <Button variant="ghost" className="mt-8" onClick={cancelExtraction}>

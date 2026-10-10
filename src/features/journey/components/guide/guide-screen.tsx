@@ -16,6 +16,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ConfidenceBadge } from "@/components/confidence-badge";
 import { DirectionIndicator } from "@/components/direction-indicator";
 import { JourneyScene } from "@/components/scene/journey-scene";
+import { narrationInput } from "@/contracts/speech";
+import { VoiceControls } from "./voice-controls";
 import { Badge } from "@/components/ui/badge";
 import { Button, arrowNudge, buttonStyles } from "@/components/ui/button";
 import { FlowEmpty } from "@/features/journey/components/flow/flow-empty";
@@ -137,6 +139,11 @@ function ActiveGuideScreen() {
             {arrived ? "End of directions" : "Temporary guide"}
           </p>
         </div>
+        <VoiceControls
+          demo={demo}
+          current={!arrived && guide ? narrationInput(guide.steps[currentStep], guide.warnings) : null}
+          next={guide ? narrationInput(guide.steps[currentStep + 1], guide.warnings) : null}
+        />
         <ol aria-hidden className="mt-3 flex gap-1">
           {steps.map((item, index) => (
             <li

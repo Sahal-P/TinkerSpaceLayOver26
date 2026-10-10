@@ -265,3 +265,11 @@
     }
   }
 }
+
+@theme {
+  --animate-processing: processing-slide 1.6s ease-in-out infinite;
+  @keyframes processing-slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+  }
+}

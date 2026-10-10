@@ -19,6 +19,7 @@ import {
   type GuideDraft,
   type Step as CanonicalStep,
 } from "@/contracts/guide";
+import { resetSpeechCache } from "./speech-client";
 import { demoDraft, type LanguageCode } from "./fixtures";
 import type { LensOutcome, Step, StepDraft } from "./schemas";
 import { presentStep } from "./presentation";
@@ -360,6 +361,10 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
   const active = useRef<{ controller: AbortController; id: string } | null>(
     null,
   );
+  useEffect(() => {
+    resetSpeechCache();
+    return () => resetSpeechCache();
+  }, [state.draft]);
   const pathname = usePathname();
   const previousPath = useRef(pathname);
   const cancelExtraction = () => {

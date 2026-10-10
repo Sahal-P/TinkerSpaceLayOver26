@@ -177,3 +177,24 @@ describe("integrated flow boundaries", () => {
     ).toBeNull();
   });
 });
+
+function ProcessingHarness() {
+  const { dispatch } = useJourney();
+  return <>
+    <button onClick={() => dispatch({ type: "extraction/started", attemptId: "loader" })}>Start pending request</button>
+    <button onClick={() => dispatch({ type: "extraction/progress", attemptId: "loader", progress: 1 })}>Finish upload</button>
+    <button onClick={() => dispatch({ type: "extraction/cancelled", attemptId: "loader" })}>Cancel pending request</button>
+    <ProcessingScreen />
+  </>;
+}
+it("shows an active loader throughout upload/processing without fabricating stage percentages", () => {
+  render(<JourneyProvider><ProcessingHarness /></JourneyProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Start pending request" }));
+  expect(screen.getByRole("progressbar", { name: "Upload progress" })).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: "Finish upload" }));
+  const progress = screen.getByRole("progressbar", { name: "Processing audio" });
+  expect(progress.getAttribute("aria-valuenow")).toBeNull();
+  expect(screen.getByText("Shaping your directions…")).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel pending request" }));
+  expect(screen.queryByRole("progressbar")).toBeNull();
+});
