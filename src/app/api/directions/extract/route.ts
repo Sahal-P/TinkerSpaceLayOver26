@@ -16,7 +16,9 @@ export async function POST(request: Request): Promise<Response> {
     audio = await readAudio(request, signal);
     viewer = viewerFromRequest(request) ?? newViewer();
     await enforceRateLimit("extraction", viewer);
-    return dataResponse(await extractDirections(audio, signal), requestId);
+    return dataResponse(await extractDirections(audio, signal, (diagnostic) => {
+      console.warn(JSON.stringify({ event: "directions_rejected", requestId, ...diagnostic }));
+    }), requestId);
   });
   audio?.bytes.fill(0);
   return viewer ? attachViewerCookie(response, viewer) : response;

@@ -66,7 +66,7 @@ export function supportsDirection(direction: Direction, text: string): boolean {
       return clauses.some((clause) => /\b(start|begin|leave)\b/.test(clause));
     case "arrive":
       return clauses.some((clause) =>
-        /\b(arrive|reach|destination|finish|end)\b/.test(clause),
+        /\b(arrive|reach(?:es|ed|ing)?|destination|finish|end)\b/.test(clause),
       );
   }
 }

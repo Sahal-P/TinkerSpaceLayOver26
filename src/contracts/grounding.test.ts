@@ -78,3 +78,12 @@ describe("evidence occurrence consumption", () => {
     expect(guideDraftSchema.safeParse(guide).success).toBe(false);
   });
 });
+
+describe("explicit arrival inflections", () => {
+  it.each(["You have reached the clinic.", "After reaching the clinic, stop.", "The path reaches the clinic."])("supports the quoted arrival wording: %s", text => {
+    expect(supportsDirection("arrive", text)).toBe(true);
+  });
+  it.each(["You have not reached the clinic.", "Avoid reaching the clinic.", "The clinic is on the left.", "Do not reach the clinic."])("does not invent arrival from: %s", text => {
+    expect(supportsDirection("arrive", text)).toBe(false);
+  });
+});

@@ -96,6 +96,49 @@ describe("Gemini boundary, quotas, and cancellation", () => {
     await expect(extractDirections(audio, new AbortController().signal)).rejects.toMatchObject({ code: "invalid_model_output" });
     expect(generate).toHaveBeenCalledTimes(2);
   });
+  it("distinguishes truncation, malformed JSON and structure with safe diagnostics", async () => {
+    for (const [reply, reason] of [
+      [{ text: "{}", candidates: [{ finishReason: "MAX_TOKENS" }] }, "truncated_output"],
+      [{ text: "private invalid JSON" }, "invalid_json"],
+      [{ text: JSON.stringify({ private: "input" }) }, "invalid_structure"],
+    ] as const) {
+      generate.mockReset().mockResolvedValue(reply);
+      const diagnostic = vi.fn();
+      await expect(extractDirections(audio, new AbortController().signal, diagnostic)).rejects.toMatchObject({ code: "invalid_model_output" });
+      expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ stage: "transcription", reason }));
+      expect(JSON.stringify(diagnostic.mock.calls)).not.toContain("private");
+    }
+  });
+  it("instructs the model to retain an unspecified walking heading as unknown instead of inferring straight", async () => {
+    const { transcription, extraction } = modelFixture(englishFixture);
+    const segment = transcription.segments[0]; const step = extraction.steps[0];
+    if (!segment || !step) throw new Error("Fixture missing");
+    segment.original = "दुकान तक दो सौ मीटर चलें।";
+    segment.translation = "Walk two hundred meters toward the tea shop.";
+    Object.assign(step, { instruction: segment.translation, evidence: { ...segment }, direction: "unknown", confidence: "low", needsReview: true,
+      landmark: { spoken: "दुकान", label: "tea shop" }, distance: { spoken: "दो सौ मीटर", translation: "two hundred meters" }, warnings: ["The heading was not stated."] });
+    generate.mockResolvedValueOnce(response(transcription)).mockResolvedValueOnce(response(extraction));
+    const result = await extractDirections(audio, new AbortController().signal);
+    expect(result.steps[0]).toMatchObject({ direction: "unknown", confidence: "low", needsReview: true, distance: { meters: 200 } });
+    expect(generate.mock.calls[1]?.[0].config.systemInstruction).toContain("Do not infer straight or start");
+    step.direction = "straight";
+    expect(() => assembleDraft(transcription, extraction)).toThrow();
+  });
+  it.each([
+    ["reached", "You have reached the clinic."],
+    ["reaching", "After reaching the clinic, stop."],
+    ["reaches", "The path reaches the clinic."],
+  ])("accepts explicit %s arrival wording without changing the evidence", (_, quote) => {
+    const { transcription, extraction } = modelFixture(englishFixture);
+    const segment = transcription.segments[3]; const step = extraction.steps[3];
+    if (!segment || !step) throw new Error("Fixture missing");
+    segment.original = "क्लिनिक तक पहुँच गए हैं।";
+    segment.translation = quote;
+    Object.assign(step, { instruction: segment.translation, evidence: { ...segment }, direction: "arrive", incline: null,
+      landmark: { spoken: "क्लिनिक", label: "clinic" }, distance: { spoken: null, translation: null } });
+    const draft = assembleDraft(transcription, extraction);
+    expect(draft.steps[3]).toMatchObject({ direction: "arrive", instruction: segment.translation, evidence: { original: segment.original, translation: segment.translation } });
+  });
   it("does not use an incorrect hint to override language detection", async () => {
     const { transcription } = modelFixture(englishFixture);
     transcription.languages = [{ code: "fr", confidence: "high" }];
