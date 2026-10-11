@@ -210,12 +210,18 @@ Configuration is parsed lazily; lint/tests/build require no production credentia
 | `SESSION_SECRET` | Random signing secret, at least 32 characters |
 | `APP_ORIGIN` | Exact trusted origin; HTTPS for non-local production |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Optional ADC file path, consumed by Google libraries |
-| `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Existing optional Admin fallback; set together with project ID |
+| `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Optional service-account pair, set together with the project ID; not used on Vercel |
+| `GCP_PROJECT_NUMBER`, `GCP_WORKLOAD_IDENTITY_POOL_ID`, `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID`, `GCP_SERVICE_ACCOUNT_EMAIL` | Vercel keyless Firestore access through Workload Identity Federation; set all four with the project ID, or none. Not secrets |
+| `VERCEL` | Set by Vercel at runtime; refuses the ADC fallback, which Vercel does not have |
 | `FIRESTORE_EMULATOR_HOST` | Optional local emulator address |
 
-Prefer an attached runtime identity with ADC. Locally use Google ADC login with project access,
-or an existing credential file outside the repository. A newly generated key requires separate
-approval and is not part of this track. No values use `NEXT_PUBLIC_`.
+Production on Vercel uses keyless Workload Identity Federation. Vercel's OIDC token is exchanged at
+Google STS, and the Firestore client impersonates `ltl-vercel-runtime`. Only the production subject
+`owner:shl-s-projects:project:tinker-space-lay-over26:environment:production` can impersonate it. Firebase
+Admin accepts only certificate or ADC credentials for Firestore, so the Vercel path builds its client
+directly with `google-auth-library` and `@google-cloud/firestore`. Locally use Google ADC login with
+project access, or an existing credential file outside the repository. A newly generated service-account
+key requires separate approval and is not part of this track. No values use `NEXT_PUBLIC_`.
 
 The owner cookie is `__Host-ltl-owner` in production (`ltl-owner` locally), HttpOnly, Secure in
 production, SameSite=Lax, Path=/, with a 30-day signed expiry. Keep the signing secret stable across
@@ -369,6 +375,25 @@ cannot establish audio transcription truth.
 
 The existing media inspector now checks every PCM packet for exact digital silence, including
 signed integer zero, float positive/negative zero, and unsigned 8-bit midpoint. One nonzero sample
+## Vercel production identity status
+
+On 2026-10-11 the user approved keyless Firestore access for production `tinker-space-lay-over26` (team
+`shl-s-projects`). The runtime credential is Workload Identity Federation, not a service-account key.
+Created in `local-to-lens` (project number `498069664220`):
+- Service account `ltl-vercel-runtime@local-to-lens.iam.gserviceaccount.com` with `roles/datastore.user` on the project.
+- Workload Identity Pool `vercel` and OIDC provider `vercel`. The issuer is `https://oidc.vercel.com/shl-s-projects`,
+  the allowed audience is `https://vercel.com/shl-s-projects`, and a provider condition limits it to the production subject.
+- `roles/iam.workloadIdentityUser` on the service account for the single production principal
+  `owner:shl-s-projects:project:tinker-space-lay-over26:environment:production`.
+
+Vercel Production holds `GCP_PROJECT_NUMBER`, `GCP_WORKLOAD_IDENTITY_POOL_ID`,
+`GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` and `GCP_SERVICE_ACCOUNT_EMAIL` as non-secret config, with
+`FIREBASE_PROJECT_ID`. `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` are blank in `.env`, so they are not set.
+
+Before this change, production returned `storage_unavailable` on the Directions step. Runtime logs showed
+`Could not load the default credentials`, followed by an unhandled rejection that exited the function. On Vercel,
+the code now fails with a configuration error before reaching ADC. Verification after the keyless code is deployed is pending.
+
 prevents this classification; there is no amplitude threshold. The pipeline rejects confirmed
 digital silence with `no_speech` before Gemini, within the existing deadlines and disposal behavior.
 Compressed bytes are never classified as silent without decoding. This guard does not claim to

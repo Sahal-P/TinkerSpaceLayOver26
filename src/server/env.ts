@@ -30,6 +30,13 @@ const firebaseEnvSchema = z
     FIREBASE_PROJECT_ID: z.string().min(1).optional(),
     FIREBASE_CLIENT_EMAIL: z.email().optional(),
     FIREBASE_PRIVATE_KEY: z.string().min(1).optional(),
+    // Keyless Vercel access through Workload Identity Federation: set all four or none.
+    GCP_PROJECT_NUMBER: z.string().regex(/^\d+$/).optional(),
+    GCP_WORKLOAD_IDENTITY_POOL_ID: z.string().min(1).optional(),
+    GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID: z.string().min(1).optional(),
+    GCP_SERVICE_ACCOUNT_EMAIL: z.email().optional(),
+    // Set by Vercel at runtime. Vercel has no Application Default Credentials.
+    VERCEL: z.string().min(1).optional(),
   })
   .refine((env) => Boolean(env.FIREBASE_CLIENT_EMAIL) === Boolean(env.FIREBASE_PRIVATE_KEY), {
     message:
@@ -39,6 +46,31 @@ const firebaseEnvSchema = z
   .refine((env) => !env.FIREBASE_CLIENT_EMAIL || Boolean(env.FIREBASE_PROJECT_ID), {
     message: "FIREBASE_PROJECT_ID is required with service-account credentials.",
     path: ["FIREBASE_PROJECT_ID"],
+  })
+  .refine(
+    (env) => {
+      const workloadIdentity = [
+        env.GCP_PROJECT_NUMBER,
+        env.GCP_WORKLOAD_IDENTITY_POOL_ID,
+        env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID,
+        env.GCP_SERVICE_ACCOUNT_EMAIL,
+      ];
+      const set = workloadIdentity.filter(Boolean).length;
+      return set === 0 || set === workloadIdentity.length;
+    },
+    {
+      message:
+        "Set GCP_PROJECT_NUMBER, GCP_WORKLOAD_IDENTITY_POOL_ID, GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID and GCP_SERVICE_ACCOUNT_EMAIL together, or none.",
+      path: ["GCP_PROJECT_NUMBER"],
+    },
+  )
+  .refine((env) => !env.GCP_PROJECT_NUMBER || Boolean(env.FIREBASE_PROJECT_ID), {
+    message: "FIREBASE_PROJECT_ID is required with workload identity federation.",
+    path: ["FIREBASE_PROJECT_ID"],
+  })
+  .refine((env) => !(env.FIREBASE_CLIENT_EMAIL && env.GCP_PROJECT_NUMBER), {
+    message: "Use either FIREBASE_CLIENT_EMAIL or the GCP_* workload identity values, not both.",
+    path: ["GCP_PROJECT_NUMBER"],
   });
 
 export type GeminiEnv = z.infer<typeof geminiEnvSchema>;

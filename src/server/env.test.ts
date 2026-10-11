@@ -8,6 +8,14 @@ const serviceAccount = {
   FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n",
 };
 
+const workloadIdentity = {
+  FIREBASE_PROJECT_ID: "demo-project",
+  GCP_PROJECT_NUMBER: "498069664220",
+  GCP_WORKLOAD_IDENTITY_POOL_ID: "vercel",
+  GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID: "vercel",
+  GCP_SERVICE_ACCOUNT_EMAIL: "ltl-vercel-runtime@demo-project.iam.gserviceaccount.com",
+};
+
 describe("readGeminiEnv", () => {
   it("returns the API key", () => {
     expect(readGeminiEnv({ GEMINI_API_KEY: "test-key" })).toEqual({ GEMINI_API_KEY: "test-key", GEMINI_MODEL: "gemini-3.8-flash" });
@@ -67,6 +75,32 @@ describe("readFirebaseEnv", () => {
     expect(() => readFirebaseEnv({ ...serviceAccount, FIREBASE_CLIENT_EMAIL: "not-an-email" })).toThrow(
       /FIREBASE_CLIENT_EMAIL/,
     );
+  });
+
+  it("accepts the keyless workload identity values", () => {
+    expect(readFirebaseEnv(workloadIdentity)).toEqual(workloadIdentity);
+  });
+
+  it("requires all four workload identity values together", () => {
+    expect(() => readFirebaseEnv({ ...workloadIdentity, GCP_SERVICE_ACCOUNT_EMAIL: undefined })).toThrow(
+      /together, or none/,
+    );
+  });
+
+  it("requires a project ID with workload identity", () => {
+    expect(() => readFirebaseEnv({ ...workloadIdentity, FIREBASE_PROJECT_ID: undefined })).toThrow(
+      /FIREBASE_PROJECT_ID/,
+    );
+  });
+
+  it("rejects a non-numeric project number", () => {
+    expect(() => readFirebaseEnv({ ...workloadIdentity, GCP_PROJECT_NUMBER: "demo-project" })).toThrow(
+      /GCP_PROJECT_NUMBER/,
+    );
+  });
+
+  it("rejects a service account and workload identity at the same time", () => {
+    expect(() => readFirebaseEnv({ ...serviceAccount, ...workloadIdentity })).toThrow(/not both/);
   });
 });
 
