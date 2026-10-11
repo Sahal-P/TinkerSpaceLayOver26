@@ -1,7 +1,7 @@
 import { ApiError as GeminiApiError } from "@google/genai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { englishFixture, guideFixtures } from "@/contracts/fixtures";
+import { englishFixture, hindiFixture, guideFixtures } from "@/contracts/fixtures";
 import type { ValidatedAudio } from "@/server/audio";
 import { modelFixture } from "@/server/testing/model-fixtures";
 
@@ -11,6 +11,21 @@ import { assembleDraft, extractDirections, PROCESSING_DEADLINE_MS } from "./pipe
 
 const audio: ValidatedAudio = { bytes: new Uint8Array([1, 2, 3]), mimeType: "audio/wav", durationMs: 2000, actualDurationMs: 2000, digitalSilence: false, consent: true, languageHint: "auto" };
 const response = (output: unknown) => ({ text: JSON.stringify(output), candidates: [{ finishReason: "STOP" }] });
+function transitionModel() {
+  const model = modelFixture(hindiFixture);
+  const prefix = model.transcription.segments[1]; const action = model.transcription.segments[2];
+  const prefixStep = model.extraction.steps[1]; const actionStep = model.extraction.steps[2];
+  if (!prefix || !action || !prefixStep || !actionStep) throw new Error("Missing fixture");
+  prefix.original = "वहाँ पहुँचकर,"; prefix.translation = "After reaching there,";
+  action.original = "पुल पर बाएँ मुड़ें और दो सौ मीटर चलें।";
+  action.translation = "turn left at the bridge and walk two hundred meters.";
+  Object.assign(prefixStep, { instruction: "After reaching there", direction: "arrive", incline: null,
+    evidence: { original: "वहाँ पहुँचकर", translation: "After reaching there" },
+    landmark: { spoken: null, label: null }, distance: { spoken: null, translation: null }, warnings: [] });
+  Object.assign(actionStep, { instruction: action.translation, evidence: { ...action },
+    distance: { spoken: "दो सौ मीटर", translation: "two hundred meters" } });
+  return model;
+}
 beforeEach(() => { generate.mockReset(); vi.stubEnv("GEMINI_API_KEY", "unit-test-key"); });
 afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
@@ -64,6 +79,72 @@ describe("source-grounded multilingual extraction", () => {
     segment.original = segment.translation = "Make a U-turn at the bridge and head downhill.";
     step.instruction = segment.translation; step.evidence = { ...segment }; step.direction = "u_turn"; step.incline = "down";
     expect(assembleDraft(transcription, extraction).steps[2]).toMatchObject({ direction: "u_turn", incline: "down" });
+  });
+  it("combines the Hindi transition with its complete action and retains the spoken details", async () => {
+    const { transcription, extraction } = transitionModel();
+    generate.mockResolvedValueOnce(response(transcription)).mockResolvedValueOnce(response(extraction));
+    const guide = await extractDirections(audio, new AbortController().signal);
+    expect(guide.steps).toHaveLength(3);
+    expect(guide.steps[1]).toMatchObject({
+      instruction: "After reaching there, turn left at the bridge and walk two hundred meters.",
+      direction: "left", confidence: "low", needsReview: true, reviewed: false,
+      landmark: { spoken: "पुल", label: "bridge" }, distance: { spoken: "दो सौ मीटर", meters: 200 },
+      evidence: { original: "वहाँ पहुँचकर, पुल पर बाएँ मुड़ें और दो सौ मीटर चलें।", startSec: null },
+    });
+    expect(guide.steps[1]?.warnings.join(" ")).toContain("not named");
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1]?.[0].config.systemInstruction).toContain("Never emit standalone transitions");
+    expect(generate.mock.calls[0]?.[0].config.systemInstruction).toContain("boarding/alighting");
+  });
+  it("does not merge across omitted words or invent a place to replace there", () => {
+    const { transcription, extraction } = transitionModel();
+    const prefix = transcription.segments[1];
+    if (!prefix) throw new Error("Missing fixture");
+    prefix.original += " रास्ता स्पष्ट नहीं है।"; prefix.translation += " The path is unclear.";
+    const guide = assembleDraft(transcription, extraction);
+    expect(guide.steps[1]?.instruction).toBe("turn left at the bridge and walk two hundred meters.");
+    expect(guide.warnings.join(" ")).toContain("without an adjacent navigation action");
+    expect(guide.transcript.translation).toContain("After reaching there");
+    const invented = transitionModel();
+    const step = invented.extraction.steps[2];
+    if (!step) throw new Error("Missing fixture");
+    step.instruction = "After reaching the bus station, turn left at the bridge.";
+    expect(() => assembleDraft(invented.transcription, invented.extraction)).toThrow();
+  });
+  it("retains incomplete-route warnings for a dangling transition and rejects transition-only output", () => {
+    const { transcription, extraction } = transitionModel();
+    extraction.steps = extraction.steps.slice(0, 2);
+    const guide = assembleDraft(transcription, extraction);
+    expect(guide.steps).toHaveLength(1); expect(guide.needsReview).toBe(true);
+    expect(guide.warnings.join(" ")).toContain("missing instruction");
+    const transition = extraction.steps[1];
+    if (!transition) throw new Error("Missing fixture");
+    extraction.steps = [transition];
+    const diagnose = vi.fn();
+    expect(() => assembleDraft(transcription, extraction, diagnose)).toThrow();
+    expect(diagnose).toHaveBeenCalledWith(expect.objectContaining({ reason: "incomplete_instruction" }));
+  });
+  it("validates transition evidence and fields before dropping or combining it", () => {
+    for (const mutation of [
+      { evidence: { original: "fabricated phrase", translation: "After reaching there" } },
+      { landmark: { spoken: "अनजान", label: "invented temple" } },
+      { distance: { spoken: "दो सौ मीटर", translation: "five hundred meters" } },
+      { direction: "right" }, { incline: "up" },
+    ]) {
+      const model = transitionModel(); Object.assign(model.extraction.steps[1] ?? {}, mutation);
+      expect(() => assembleDraft(model.transcription, model.extraction)).toThrow();
+    }
+  });
+  it("does not let an intermediate arrival suppress a missing final destination warning", () => {
+    const { transcription, extraction } = modelFixture(englishFixture);
+    const last = extraction.steps[2];
+    if (!last) throw new Error("Missing fixture");
+    const segment = { original: "Turn left.", translation: "Turn left." };
+    transcription.segments.push(segment);
+    extraction.steps.push({ ...structuredClone(last), instruction: segment.translation, evidence: segment,
+      landmark: { spoken: null, label: null }, distance: { spoken: null, translation: null } });
+    const guide = assembleDraft(transcription, extraction);
+    expect(guide.warnings.join(" ")).toContain("final destination");
   });
 });
 

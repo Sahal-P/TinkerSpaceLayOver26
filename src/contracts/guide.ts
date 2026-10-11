@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { normalizeDistance } from "./distance";
+import { findEvidenceSpan } from "./evidence-span";
+import { hasUnresolvedPlaceReference, isNavigationTransition } from "./navigation-quality";
 import {
   contradictoryTurns,
   hedgedEvidence,
@@ -169,6 +171,13 @@ export const stepSchema = stepObjectSchema.superRefine((step, ctx) => {
   }
   if (step.source === "audio" && step.evidence) {
     const evidence = step.evidence;
+    if (isNavigationTransition(step.instruction)) {
+      ctx.addIssue({ code: "custom", path: ["instruction"], message: "A transition needs its complete navigation action, not a standalone step." });
+    }
+    if (hasUnresolvedPlaceReference(step.instruction, step.landmark.label) &&
+      (step.confidence !== "low" || !step.needsReview || step.warnings.length === 0)) {
+      ctx.addIssue({ code: "custom", path: ["instruction"], message: "An unnamed place reference must remain uncertain until clarified." });
+    }
     if (
       step.instruction !== evidence.translation ||
       !supportsDirection(step.direction, evidence.translation) ||
@@ -220,28 +229,18 @@ export const guideDraftSchema = z
     ) {
       ctx.addIssue({ code: "custom", message: "Step IDs must be unique." });
     }
-    let position = 0;
+    let position = 0; let translationPosition = 0;
     for (const [index, step] of guide.steps.entries()) {
       if (step.source !== "audio" || !step.evidence) continue;
-      const offset = guide.transcript.original.indexOf(
-        step.evidence.original,
-        position,
-      );
       const evidence = step.evidence;
-      const pairedSegment = guide.transcript.segments.some(
-        (segment) =>
-          segment.original.includes(evidence.original) &&
-          segment.translation.includes(evidence.translation) &&
-          (evidence.startSec === null ||
-            evidence.startSec === segment.startSec),
-      );
-      if (offset < 0 || !pairedSegment) {
+      const span = findEvidenceSpan(guide.transcript, evidence, position, translationPosition);
+      if (!span) {
         ctx.addIssue({
           code: "custom",
           path: ["steps", index, "evidence"],
           message: "Evidence must occur in the transcript in source order.",
         });
-      } else position = offset + evidence.original.length;
+      } else { position = span.originalEnd; translationPosition = span.translationEnd; }
     }
     if (
       (guide.warnings.length > 0 ||

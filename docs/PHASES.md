@@ -129,6 +129,19 @@ deadline or limit was increased.
 
 Provider availability remains external; no additional live extraction batch was run.
 
+## Complete navigation instructions
+
+- [x] Preserve complete spoken actions, transit details, stops, landmarks and quantities
+- [x] Combine adjacent fact-free transitions with their source-backed action
+- [x] Reject standalone transition cards and conditional false arrivals at canonical boundaries
+- [x] Validate same-span bilingual evidence, source order and non-reuse across adjacent segments
+- [x] Preserve unknown-place and missing-final-arrival warnings after confirmation
+- [x] Hindi transition regression and canonical browser integration fixture
+- [ ] Fresh live clip extraction and independent speaker review of route accuracy
+
+No extra live extraction calls were made for this correction. Reprocess an existing in-memory
+guide to apply the new extraction/refinement rules; previous drafts are not silently rewritten.
+
 ## Phase 3b: Saved and shared guides (deferred)
 
 Wire confirmed saves, publishing/revocation, canonical share URLs/QR, and `/g/[id]` through the

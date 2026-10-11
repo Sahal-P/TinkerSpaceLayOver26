@@ -1,4 +1,5 @@
 import type { Direction } from "./guide";
+import { isNavigationTransition } from "./navigation-quality";
 
 /** Conservative positive clauses: never turn a prohibition into an instruction. */
 function affirmativeClauses(text: string): string[] {
@@ -65,9 +66,11 @@ export function supportsDirection(direction: Direction, text: string): boolean {
     case "start":
       return clauses.some((clause) => /\b(start|begin|leave)\b/.test(clause));
     case "arrive":
+      if (isNavigationTransition(text)) return false;
       return clauses.some((clause) =>
-        /\b(arrive|reach(?:es|ed|ing)?|destination|finish|end)\b/.test(clause),
-      );
+        !/^\s*(?:after|before|when|once|if|as|upon|on|having)\b/.test(clause) &&
+        /\b(?:arrive|arrives|arrived|reach|reaches|reached)\b|\b(?:finish|end)\s+(?:the\s+)?(?:route|walk|journey|trip|directions)\b|\b(?:is|at)\s+(?:(?:your|the)\s+)?(?:final\s+)?destination\b/.test(clause),
+      ) || (/\b(?:reaching|arriving)\b/i.test(text) && clauses.some(clause => /^\s*(?:you\s+)?stop\b/.test(clause)));
   }
 }
 export function supportsIncline(

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import {
   ambiguousFixture,
+  contextualHindiFixture,
   englishFixture,
   guideFixtures,
 } from "../src/contracts/fixtures";
@@ -35,6 +36,7 @@ async function goToGuide(page: Page) {
     page.getByRole("link", { name: "Review my route" }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Review my route" }).click();
+  await expect(page.getByRole("heading", { name: "Check the route before you go.", exact: true })).toBeVisible();
   const warning = page.getByRole("checkbox", { name: /remaining uncertainty/ });
   if (await warning.count()) await warning.check();
   await page
@@ -44,6 +46,22 @@ async function goToGuide(page: Page) {
 test.beforeEach(async ({ page }) => {
   // No live service calls are permitted in automated browser tests.
   await page.route("**/api/**", (route) => route.abort());
+});
+test("a contextual Hindi action stays detailed and uncertain through review and guide", async ({ page }, testInfo) => {
+  await respond(page, contextualHindiFixture); await selectClip(page); await goToGuide(page);
+  await expect(page.getByRole("heading", { name: "Start at the bus stop.", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Next step", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "After reaching there, turn left at the bridge and walk two hundred meters.", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "After reaching there", exact: true })).toHaveCount(0);
+  await expect(page.getByText("200 m", { exact: true })).toBeVisible();
+  await expect(page.getByText(/place referred to as there is not named/)).toBeVisible();
+  await expect(page.getByText("Clear · reviewed", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/पुल पर बाएँ मुड़ें/)).toBeVisible();
+  await expect(page.getByRole("article", { name: "After reaching there, turn left at the bridge and walk two hundred meters.", exact: true })).toHaveCSS("opacity", "1");
+  if (testInfo.project.name === "chromium-desktop") await page.screenshot({
+    path: testInfo.outputPath("refined-hindi-instruction.png"),
+    fullPage: true,
+  });
 });
 for (const name of ["english", "malayalam", "hindi", "mixed"] as const) {
   test(`validated ${name} upload reaches a local guide`, async ({ page }) => {

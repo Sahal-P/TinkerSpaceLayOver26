@@ -84,10 +84,21 @@ with nulls for missing values. Distance is `{ spoken, meters }`; absent distance
 real-world location.
 
 Audio steps use `source: "audio"` with non-null `{ original, translation, startSec }` evidence.
-The instruction must be the exact translated quote. Both quotes must occur in the same transcript
-segment; source order is checked. Turn and incline values require explicit supporting English
+The instruction must be the exact translated quote. Both quotes must cover the same transcript
+segment or the same contiguous adjacent-segment span; source order in both languages is checked.
+Spans cannot skip intervening words or reuse an earlier occurrence. Turn and incline values require explicit supporting English
 words. Landmark phrases must occur in their respective evidence quotes. Unknown directions keep
 low confidence, warnings, and `needsReview: true`.
+
+Instructions preserve complete spoken actions, including transport, stop names, boarding/alighting,
+landmark, distance and conditions. Dependent transitions such as “After reaching there” cannot
+stand alone or count as arrival. A fact-free transition is combined with its next quoted action
+only across punctuation/whitespace gaps in both languages; no wording is invented or paraphrased.
+An unmatched fact-free transition stays in the transcript and adds an incomplete-route warning.
+An unmatched transition containing factual references fails validation rather than losing facts.
+Unnamed “there”, “here” and “that place” references require low confidence and review warnings;
+an earlier waypoint is never substituted by guessing. A final arrival warning depends on the last
+step, so an intermediate arrival cannot imply a complete route.
 
 Numeric meters are deterministically normalized from explicit English numeric or number-word
 phrases with recognized meter/kilometer/foot/mile/yard units. Time, vague references, ranges,
@@ -364,17 +375,6 @@ probes. Extraction requests subsequently passed the atomic Firestore rate-limit 
 User-account ADC is for local development; deployment should use an attached runtime identity.
 Do not commit or copy refresh-token contents into `.env` files or documentation.
 
-## Live negative-case findings and fix
-
-An actual browser upload of the exact-silence WAV reached Gemini and returned
-`unsupported_language` (request `ff778c57-0fe8-4325-83d4-0436fd81186a`). No guide/fallback appeared.
-A single diagnostic replay inspected only structural metadata: Gemini reported speech, one English
-segment, and a completed transcription. The next model stage failed with safe `upstream_unavailable`.
-No transcript or raw provider error was logged. This demonstrates that source consistency alone
-cannot establish audio transcription truth.
-
-The existing media inspector now checks every PCM packet for exact digital silence, including
-signed integer zero, float positive/negative zero, and unsigned 8-bit midpoint. One nonzero sample
 ## Vercel production identity status
 
 On 2026-10-11 the user approved keyless Firestore access for production `tinker-space-lay-over26` (team
@@ -392,8 +392,19 @@ Vercel Production holds `GCP_PROJECT_NUMBER`, `GCP_WORKLOAD_IDENTITY_POOL_ID`,
 
 Before this change, production returned `storage_unavailable` on the Directions step. Runtime logs showed
 `Could not load the default credentials`, followed by an unhandled rejection that exited the function. On Vercel,
-the code now fails with a configuration error before reaching ADC. Verification after the keyless code is deployed is pending.
+the code now fails with a configuration error before reaching ADC. Verified on 2026-10-11 after merging `Sahal-P/TinkerSpaceLayOver26#1` (`5787615`): a synthetic two-second silent WAV through the production Directions step returned `422 no_speech` from the digital-silence guard, which runs after the Firestore rate-limit transaction. Production error logs stayed clean for 20 minutes. Gemini was not exercised.
 
+## Live negative-case findings and fix
+
+An actual browser upload of the exact-silence WAV reached Gemini and returned
+`unsupported_language` (request `ff778c57-0fe8-4325-83d4-0436fd81186a`). No guide/fallback appeared.
+A single diagnostic replay inspected only structural metadata: Gemini reported speech, one English
+segment, and a completed transcription. The next model stage failed with safe `upstream_unavailable`.
+No transcript or raw provider error was logged. This demonstrates that source consistency alone
+cannot establish audio transcription truth.
+
+The existing media inspector now checks every PCM packet for exact digital silence, including
+signed integer zero, float positive/negative zero, and unsigned 8-bit midpoint. One nonzero sample
 prevents this classification; there is no amplitude threshold. The pipeline rejects confirmed
 digital silence with `no_speech` before Gemini, within the existing deadlines and disposal behavior.
 Compressed bytes are never classified as silent without decoding. This guard does not claim to
@@ -514,8 +525,9 @@ safe messages. Physical Safari/native-speaker acoustic review remain pending.
 
 ## Targeted Hindi clip correction
 
-The direction grounder now accepts explicit `reach`, `reaches`, `reached` and `reaching` arrival
-wording, while retaining negation filtering and exact paired evidence. Extraction prompting makes
+The direction grounder accepts complete `reach`, `reaches` and `reached` arrival statements and
+`reaching` conditions with an explicit stopping action. A dependent transition alone does not
+count as arrival. Negation filtering and exact paired evidence remain. Extraction prompting makes
 non-turn labels conditional on supported words; unqualified walking/crossing instructions retain
 unknown heading, low confidence and review warnings. No canonical/API schema changed.
 

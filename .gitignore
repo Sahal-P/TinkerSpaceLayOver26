@@ -29,3 +29,9 @@ next-env.d.ts
 # browser test artifacts
 /test-results/
 /playwright-report/
+
+# Generated live-verification clips (keep local; not application assets).
+/english.wav
+/hindi.wav
+/malayalam.wav
+/mixed.wav

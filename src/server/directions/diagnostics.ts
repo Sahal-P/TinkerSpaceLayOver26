@@ -4,7 +4,7 @@ import { ApiError } from "@/server/api/errors";
 
 const diagnosticSchema = z.strictObject({
   stage: z.enum(["transcription", "extraction", "assembly"]),
-  reason: z.enum(["truncated_output", "invalid_json", "invalid_structure", "quote_mismatch", "evidence_ordering", "unsupported_direction", "unsupported_incline", "distance_mismatch", "landmark_mismatch", "transcript_bounds", "language_invalid", "guide_bounds", "provider_timeout", "provider_quota", "provider_configuration", "provider_http_500", "provider_http_502", "provider_http_503", "provider_unavailable", "provider_network", "provider_unknown", "request_cancelled", "processing_deadline"]),
+  reason: z.enum(["truncated_output", "invalid_json", "invalid_structure", "quote_mismatch", "evidence_ordering", "unsupported_direction", "unsupported_incline", "distance_mismatch", "landmark_mismatch", "transcript_bounds", "language_invalid", "guide_bounds", "incomplete_instruction", "provider_timeout", "provider_quota", "provider_configuration", "provider_http_500", "provider_http_502", "provider_http_503", "provider_unavailable", "provider_network", "provider_unknown", "request_cancelled", "processing_deadline"]),
   path: z.array(z.union([z.string(), z.number().int().nonnegative()])).max(8),
 });
 export type ExtractionDiagnostic = z.infer<typeof diagnosticSchema>;
