@@ -45,7 +45,7 @@ Fixture: `contextualHindiFixture` from `@/contracts/fixtures`.
 Lint, typecheck, unit tests and production build pass. Combined unit suite: 338 tests / 37 files (including the Vercel keyless Firestore changes).
 Chrome/WebKit phone and desktop checks cover the complete action, distance, Hindi evidence and
 uncertainty after confirmation, alongside existing upload, review, voice and processing-loader checks.
-The final complete browser suite result is recorded in the handoff.
+Final browser suite: 86 passed / two existing WebKit microphone skips, across all four projects.
 Initial browser regression runs exposed test navigation before hydration and a check for warning
 acknowledgement before the Review page mounted. The test now waits for Review/Guide content and
 uses the accessible Next step control. A stale production process was also restarted after the

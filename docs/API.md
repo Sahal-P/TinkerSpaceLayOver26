@@ -375,55 +375,6 @@ probes. Extraction requests subsequently passed the atomic Firestore rate-limit 
 User-account ADC is for local development; deployment should use an attached runtime identity.
 Do not commit or copy refresh-token contents into `.env` files or documentation.
 
-## Vercel production identity status
-
-On 2026-10-11 the user approved keyless Firestore access for production `tinker-space-lay-over26` (team
-`shl-s-projects`). The runtime credential is Workload Identity Federation, not a service-account key.
-Created in `local-to-lens` (project number `498069664220`):
-- Service account `ltl-vercel-runtime@local-to-lens.iam.gserviceaccount.com` with `roles/datastore.user` on the project.
-- Workload Identity Pool `vercel` and OIDC provider `vercel`. The issuer is `https://oidc.vercel.com/shl-s-projects`,
-  the allowed audience is `https://vercel.com/shl-s-projects`, and a provider condition limits it to the production subject.
-- `roles/iam.workloadIdentityUser` on the service account for the single production principal
-  `owner:shl-s-projects:project:tinker-space-lay-over26:environment:production`.
-
-Vercel Production holds `GCP_PROJECT_NUMBER`, `GCP_WORKLOAD_IDENTITY_POOL_ID`,
-`GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` and `GCP_SERVICE_ACCOUNT_EMAIL` as non-secret config, with
-`FIREBASE_PROJECT_ID`. `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` are blank in `.env`, so they are not set.
-
-Before this change, production returned `storage_unavailable` on the Directions step. Runtime logs showed
-`Could not load the default credentials`, followed by an unhandled rejection that exited the function. On Vercel,
-the code now fails with a configuration error before reaching ADC. Verified on 2026-10-11 after merging `Sahal-P/TinkerSpaceLayOver26#1` (`5787615`): a synthetic two-second silent WAV through the production Directions step returned `422 no_speech` from the digital-silence guard, which runs after the Firestore rate-limit transaction. Production error logs stayed clean for 20 minutes. Gemini was not exercised.
-
-## Live negative-case findings and fix
-
-An actual browser upload of the exact-silence WAV reached Gemini and returned
-`unsupported_language` (request `ff778c57-0fe8-4325-83d4-0436fd81186a`). No guide/fallback appeared.
-A single diagnostic replay inspected only structural metadata: Gemini reported speech, one English
-segment, and a completed transcription. The next model stage failed with safe `upstream_unavailable`.
-No transcript or raw provider error was logged. This demonstrates that source consistency alone
-cannot establish audio transcription truth.
-
-The existing media inspector now checks every PCM packet for exact digital silence, including
-signed integer zero, float positive/negative zero, and unsigned 8-bit midpoint. One nonzero sample
-## Vercel production identity status
-
-On 2026-10-11 the user approved keyless Firestore access for production `tinker-space-lay-over26` (team
-`shl-s-projects`). The runtime credential is Workload Identity Federation, not a service-account key.
-Created in `local-to-lens` (project number `498069664220`):
-- Service account `ltl-vercel-runtime@local-to-lens.iam.gserviceaccount.com` with `roles/datastore.user` on the project.
-- Workload Identity Pool `vercel` and OIDC provider `vercel`. The issuer is `https://oidc.vercel.com/shl-s-projects`,
-  the allowed audience is `https://vercel.com/shl-s-projects`, and a provider condition limits it to the production subject.
-- `roles/iam.workloadIdentityUser` on the service account for the single production principal
-  `owner:shl-s-projects:project:tinker-space-lay-over26:environment:production`.
-
-Vercel Production holds `GCP_PROJECT_NUMBER`, `GCP_WORKLOAD_IDENTITY_POOL_ID`,
-`GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` and `GCP_SERVICE_ACCOUNT_EMAIL` as non-secret config, with
-`FIREBASE_PROJECT_ID`. `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` are blank in `.env`, so they are not set.
-
-Before this change, production returned `storage_unavailable` on the Directions step. Runtime logs showed
-`Could not load the default credentials`, followed by an unhandled rejection that exited the function. On Vercel,
-the code now fails with a configuration error before reaching ADC. Verification after the keyless code is deployed is pending.
-
 prevents this classification; there is no amplitude threshold. The pipeline rejects confirmed
 digital silence with `no_speech` before Gemini, within the existing deadlines and disposal behavior.
 Compressed bytes are never classified as silent without decoding. This guard does not claim to
@@ -579,3 +530,52 @@ request `0b47724d-8f7e-47f7-bce6-bf09283bd6b6` had no provider diagnostic, so it
 is unknown. No new agent live extraction was made beyond the previous eight-attempt batch.
 Automated recovery tests mock provider failures and browser API responses; they cannot establish
 current Google uptime or eliminate future external failures.
+
+## Vercel production identity status
+
+On 2026-10-11 the user approved keyless Firestore access for production `tinker-space-lay-over26` (team
+`shl-s-projects`). The runtime credential is Workload Identity Federation, not a service-account key.
+Created in `local-to-lens` (project number `498069664220`):
+- Service account `ltl-vercel-runtime@local-to-lens.iam.gserviceaccount.com` with `roles/datastore.user` on the project.
+- Workload Identity Pool `vercel` and OIDC provider `vercel`. The issuer is `https://oidc.vercel.com/shl-s-projects`,
+  the allowed audience is `https://vercel.com/shl-s-projects`, and a provider condition limits it to the production subject.
+- `roles/iam.workloadIdentityUser` on the service account for the single production principal
+  `owner:shl-s-projects:project:tinker-space-lay-over26:environment:production`.
+
+Vercel Production holds `GCP_PROJECT_NUMBER`, `GCP_WORKLOAD_IDENTITY_POOL_ID`,
+`GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` and `GCP_SERVICE_ACCOUNT_EMAIL` as non-secret config, with
+`FIREBASE_PROJECT_ID`. `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` are blank in `.env`, so they are not set.
+
+Before this change, production returned `storage_unavailable` on the Directions step. Runtime logs showed
+`Could not load the default credentials`, followed by an unhandled rejection that exited the function. On Vercel,
+the code now fails with a configuration error before reaching ADC. Verified on 2026-10-11 after merging `Sahal-P/TinkerSpaceLayOver26#1` (`5787615`): a synthetic two-second silent WAV through the production Directions step returned `422 no_speech` from the digital-silence guard, which runs after the Firestore rate-limit transaction. Production error logs stayed clean for 20 minutes. Gemini was not exercised.
+
+## Live negative-case findings and fix
+
+An actual browser upload of the exact-silence WAV reached Gemini and returned
+`unsupported_language` (request `ff778c57-0fe8-4325-83d4-0436fd81186a`). No guide/fallback appeared.
+A single diagnostic replay inspected only structural metadata: Gemini reported speech, one English
+segment, and a completed transcription. The next model stage failed with safe `upstream_unavailable`.
+No transcript or raw provider error was logged. This demonstrates that source consistency alone
+cannot establish audio transcription truth.
+
+The existing media inspector now checks every PCM packet for exact digital silence, including
+signed integer zero, float positive/negative zero, and unsigned 8-bit midpoint. One nonzero sample
+## Vercel production identity status
+
+On 2026-10-11 the user approved keyless Firestore access for production `tinker-space-lay-over26` (team
+`shl-s-projects`). The runtime credential is Workload Identity Federation, not a service-account key.
+Created in `local-to-lens` (project number `498069664220`):
+- Service account `ltl-vercel-runtime@local-to-lens.iam.gserviceaccount.com` with `roles/datastore.user` on the project.
+- Workload Identity Pool `vercel` and OIDC provider `vercel`. The issuer is `https://oidc.vercel.com/shl-s-projects`,
+  the allowed audience is `https://vercel.com/shl-s-projects`, and a provider condition limits it to the production subject.
+- `roles/iam.workloadIdentityUser` on the service account for the single production principal
+  `owner:shl-s-projects:project:tinker-space-lay-over26:environment:production`.
+
+Vercel Production holds `GCP_PROJECT_NUMBER`, `GCP_WORKLOAD_IDENTITY_POOL_ID`,
+`GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` and `GCP_SERVICE_ACCOUNT_EMAIL` as non-secret config, with
+`FIREBASE_PROJECT_ID`. `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` are blank in `.env`, so they are not set.
+
+Before this change, production returned `storage_unavailable` on the Directions step. Runtime logs showed
+`Could not load the default credentials`, followed by an unhandled rejection that exited the function. On Vercel,
+the code now fails with a configuration error before reaching ADC. Verification after the keyless code is deployed is pending.
