@@ -239,5 +239,6 @@ JourneyScene (client, main bundle)      2D RouteSketch fallback, WebGL detection
   - `noindex` on public guides
 
 Atomic Firestore limits protect extraction, guide mutations and published reads; unavailable
-protection fails closed. Client Firestore rules deny all access. Local development now uses approved
-user-account ADC outside Git; deployment must use an approved attached runtime identity.
+protection fails closed. Client Firestore rules deny all access. Local development uses approved
+user-account ADC outside Git. Vercel production uses keyless Workload Identity Federation for the
+`ltl-vercel-runtime` service account, and no service-account key is stored; without credentials, Firestore fails closed.
