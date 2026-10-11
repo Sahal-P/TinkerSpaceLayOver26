@@ -78,9 +78,19 @@ Upload controls wait for hydration so early WebKit file events are not lost. Aud
 for retry and is released on success/reset/flow exit.
 
 Rejection diagnostics are server-only: fixed stage/reason codes, whitelisted schema paths and
-request IDs. The client error envelope is unchanged. Explicit reach inflections count as arrival
-evidence; negated wording does not. The extraction prompt avoids inferred straight/start labels
+request IDs. The client error envelope is unchanged. Complete arrival statements count as arrival
+evidence; dependent reaching conditions and negated wording do not. The extraction prompt avoids inferred straight/start labels
 for instructions with unspecified heading, preserving their quoted facts and review warnings.
+
+`contracts/navigation-quality.ts` rejects standalone transitions and flags unresolved place
+references. `refine-navigation.ts` combines fact-free transitions with complete adjacent actions,
+using exact source substrings in both languages. Punctuation gaps can be joined; intervening words
+cannot be skipped. A dangling fact-free transition stays in the transcript with an incomplete-route
+warning. Factual references on an unmatched transition cannot be silently removed.
+`evidence-span.ts` permits complete quotes across adjacent segments only when the original and
+translation cover the same segment span, remain ordered and never reuse evidence. Instructions
+remain exact quotes; no place, turn or distance is inferred for refinement. Unknown places keep
+low confidence and visible warnings. Guide completion checks the final step, not any earlier arrival.
 
 Provider diagnostics distinguish known HTTP 500/502/503, quota/configuration failures, transport
 timeouts/connections, unknown exceptions and cancellation/deadline events. A fixed-field classifier

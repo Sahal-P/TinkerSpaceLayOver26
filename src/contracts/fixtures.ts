@@ -86,6 +86,24 @@ function clearFixture(code: keyof typeof samples): GuideDraft {
 export const englishFixture = clearFixture("en");
 export const hindiFixture = clearFixture("hi");
 export const malayalamFixture = clearFixture("ml");
+/** A complete action spanning adjacent segments, with its unresolved reference preserved. */
+export const contextualHindiFixture = (() => {
+  const guide = structuredClone(hindiFixture);
+  const prefix = guide.transcript.segments[1]; const action = guide.transcript.segments[2]; const step = guide.steps[2];
+  if (!prefix || !action || !step) throw new Error("Missing contextual fixture");
+  prefix.original = "वहाँ पहुँचकर,"; prefix.translation = "After reaching there,";
+  action.original = "पुल पर बाएँ मुड़ें और दो सौ मीटर चलें।";
+  action.translation = "turn left at the bridge and walk two hundred meters.";
+  guide.transcript.original = guide.transcript.segments.map(s => s.original).join(" ");
+  guide.transcript.translation = guide.transcript.segments.map(s => s.translation).join(" ");
+  guide.steps.splice(1, 2, { ...step, instruction: prefix.translation + " " + action.translation,
+    evidence: { original: prefix.original + " " + action.original, translation: prefix.translation + " " + action.translation, startSec: null },
+    distance: { spoken: "दो सौ मीटर", meters: 200 }, confidence: "low", needsReview: true,
+    warnings: ["The place referred to as there is not named in this instruction; confirm it with the speaker."],
+  });
+  guide.needsReview = true;
+  return guideDraftSchema.parse(guide);
+})();
 export const mixedLanguageFixture = (() => {
   const fixture = structuredClone(englishFixture);
   const originals = [

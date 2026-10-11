@@ -7,6 +7,9 @@ import { z } from "zod";
 import { confidenceSchema, directionSchema, guideDraftSchema, languageCodeSchema, MAX_GUIDE_BYTES, type GuideDraft, type Step } from "@/contracts/guide";
 import { normalizeDistance } from "@/contracts/distance";
 import { contradictoryTurns, hedgedEvidence, supportsDirection, supportsIncline } from "@/contracts/evidence";
+import { findEvidenceSpan } from "@/contracts/evidence-span";
+import { hasUnresolvedPlaceReference, isNavigationTransition } from "@/contracts/navigation-quality";
+import { refineNavigationSteps } from "@/contracts/refine-navigation";
 import { ApiError, requestAborted } from "@/server/api/errors";
 import type { ValidatedAudio } from "@/server/audio";
 import { readGeminiEnv } from "@/server/env";
@@ -42,6 +45,7 @@ const transcriptionPrompt = [
   "Detect actual spoken languages with BCP-47 codes; a caller's hint may be wrong.",
   "Preserve place names and explicitly spoken quantities. Do not infer a city, location, speaker identity, landmark, or distance.",
   "Return exact original-language phrases and their faithful English translations as ordered segments.",
+  "Keep complete sentences and their connected navigation clauses together. Do not split a dependent transition such as 'after reaching there' away from its following action. Preserve transport modes, stop names, boarding/alighting instructions and all spoken qualifiers.",
   "Use [unclear] for inaudible content and explain uncertainty in warnings. Never fill gaps with plausible words.",
   "Return hasSpeech:false and empty segments/languages for silence, noise, or unintelligible non-speech.",
   "No timestamps, GPS, tools, external knowledge, or extra fields. Return only the requested JSON.",
@@ -56,10 +60,11 @@ const extractionPrompt = [
   "distance.spoken and distance.translation are exact original/English distance phrases, or both null. Never supply a numeric distance yourself.",
   "Preserve vague distance and time phrases. Do not convert time into distance or estimate gaps.",
   "A turn's direction must be explicitly spoken. Do not interpret the side of a landmark as a turn.",
-  "Non-turn labels also require explicit wording in evidence.translation: start needs start/begin/leave, straight needs straight/ahead/forward/continue, and arrive needs arrive/reach/reaches/reached/reaching/destination/finish/end.",
+  "Non-turn labels also require explicit wording in evidence.translation: start needs start/begin/leave, straight needs straight/ahead/forward/continue, and arrive needs a complete arrival or route-completion statement. 'After reaching there', 'when you arrive', and other dependent conditions alone do not state an arrival instruction.",
   "Walking toward a landmark, crossing a road, passing something, or describing an origin does not by itself state a heading. Do not infer straight or start from these phrases or from a step's position in the sequence.",
   "When a quoted instruction has no supported heading, preserve its exact words and landmark/distance references, but return direction:unknown, confidence:low, needsReview:true and a warning explaining that the heading was not specified.",
-  "For compound instructions, choose the smallest complete, paired original/English clause that supports this step. Keep adjacent clauses as separate steps only with distinct non-overlapping evidence; do not include a prohibition as evidence for an affirmative heading.",
+  "Use complete, self-contained navigation actions, not the smallest possible phrase. Preserve their spoken transport, boarding/alighting point, landmark, distance, condition and sequence details. Never emit standalone transitions like 'After reaching there', 'then', 'from there', or 'after that'; include them with the next actionable instruction. Quotes may span adjacent segments in both languages in the same order. Do not reuse evidence across steps or include a prohibition as evidence for an affirmative heading.",
+  "Do not replace 'there', 'here' or 'that place' with a guessed location. Include an explicitly named location within the quoted instruction when possible; otherwise preserve the reference with confidence:low, needsReview:true and a warning asking which place the speaker meant. No invented route detail may be added to make an instruction sound more detailed.",
   "Use unknown, low confidence, needsReview:true, and warnings for missing or contradictory direction.",
   "Keep hedges such as 'I think' and 'maybe'; mark uncertainty. Incline requires explicit uphill/downhill/climbing wording.",
   "Do not add start/arrive steps unless stated. Flag missing origin/destination and incomplete or unclear instructions.",
@@ -98,19 +103,28 @@ export function assembleDraft(transcription: TranscriptionModelOutput, extractio
     id: "s" + (index + 1), original: segment.original.normalize("NFC"), translation: segment.translation.normalize("NFC"),
     startSec: null, endSec: null,
   }));
-  const steps: Step[] = extraction.steps.map((input, index) => {
+  const transcript = { original: segments.map(s => s.original).join(" "), translation: segments.map(s => s.translation).join(" "), segments };
+  let originalPosition = 0; let translationPosition = 0;
+  const quotedSteps: Step[] = extraction.steps.map((input, index) => {
     const evidence = {
       original: input.evidence.original.normalize("NFC"), translation: input.evidence.translation.normalize("NFC"), startSec: null,
     };
-    if (!supportsDirection(input.direction, input.evidence.translation)) throw invalidOutput("unsupported_direction", ["steps", index, "direction"]);
     if (input.instruction.normalize("NFC") !== evidence.translation) throw invalidOutput("quote_mismatch", ["steps", index, "instruction"]);
+    const span = findEvidenceSpan(transcript, evidence, originalPosition, translationPosition);
+    if (!span) throw invalidOutput("evidence_ordering", ["steps", index, "evidence"]);
+    originalPosition = span.originalEnd; translationPosition = span.translationEnd;
+    const transition = isNavigationTransition(evidence.translation);
+    const emptyTransition = transition && ["arrive", "unknown"].includes(input.direction) && input.incline === null &&
+      input.landmark.spoken === null && input.landmark.label === null && input.distance.spoken === null && input.distance.translation === null;
+    // A known, fact-free transition may be attached to its following action; its bogus arrival label is discarded.
+    if (!supportsDirection(input.direction, evidence.translation) && !emptyTransition) throw invalidOutput("unsupported_direction", ["steps", index, "direction"]);
     if ((input.distance.spoken === null) !== (input.distance.translation === null) ||
         (input.distance.translation !== null && !evidence.translation.includes(input.distance.translation))) throw invalidOutput("distance_mismatch", ["steps", index, "distance"]);
     const warnings = [...input.warnings];
     let direction = input.direction;
     let confidence = input.confidence;
     const contradictory = contradictoryTurns(evidence.translation);
-    if (contradictory || direction === "unknown" || evidence.translation.includes("[unclear]")) {
+    if (!transition && (contradictory || direction === "unknown" || evidence.translation.includes("[unclear]"))) {
       direction = "unknown";
       confidence = "low";
       warnings.push("The turn or instruction is incomplete or ambiguous; confirm it with the speaker.");
@@ -143,12 +157,19 @@ export function assembleDraft(transcription: TranscriptionModelOutput, extractio
       needsReview: input.needsReview || uniqueWarnings.length > 0 || confidence !== "high", reviewed: false,
     };
   });
-  const warnings = [...new Set([...transcription.warnings, ...extraction.warnings])];
+  const refined = refineNavigationSteps(quotedSteps, transcript);
+  if (!refined.steps.length) throw invalidOutput("incomplete_instruction", ["steps"]);
+  const steps = refined.steps.map(step => {
+    if (!hasUnresolvedPlaceReference(step.instruction, step.landmark.label)) return step;
+    return { ...step, confidence: "low" as const, needsReview: true,
+      warnings: [...new Set([...step.warnings, "The place referred to as here, there, or that place is not named in this instruction; confirm it with the speaker."])] };
+  });
+  const warnings = [...new Set([...transcription.warnings, ...extraction.warnings, ...refined.warnings])];
   if (!steps.some((step) => step.direction === "start")) warnings.push("The starting point was not explicitly identified.");
-  if (!steps.some((step) => step.direction === "arrive")) warnings.push("The destination or arrival was not explicitly identified.");
+  if (steps.at(-1)?.direction !== "arrive") warnings.push("The final destination or arrival was not explicitly identified.");
   const result = guideDraftSchema.safeParse({
     version: 1, languages: { detected: languages, target: "en" },
-    transcript: { original: segments.map((s) => s.original).join(" "), translation: segments.map((s) => s.translation).join(" "), segments },
+    transcript,
     steps, warnings: [...new Set(warnings)], needsReview: warnings.length > 0 || steps.some((step) => step.needsReview),
   });
   if (!result.success) {
