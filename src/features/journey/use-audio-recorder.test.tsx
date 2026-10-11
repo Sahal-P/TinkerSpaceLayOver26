@@ -7,6 +7,7 @@ const { prepare, getMedia } = vi.hoisted(() => ({
   getMedia: vi.fn(),
 }));
 vi.mock("./audio-client", () => ({ prepareClip: prepare }));
+import { SampleClipError } from "./sample-clip";
 import {
   chooseRecorderType,
   recordingError,
@@ -204,5 +205,71 @@ describe("recording replacement races", () => {
     });
     expect(result.current.phase).toBe("idle");
     expect(result.current.clip).toBeNull();
+  });
+});
+
+describe("clips from an async source", () => {
+  it("validates a loaded clip through the same inspection as an upload", async () => {
+    const blob = new Blob(["sample"]);
+    const { result } = renderHook(() => useAudioRecorder(null));
+    act(() => result.current.loadClip(async () => blob));
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    expect(prepare.mock.calls[0]?.[0]).toBe(blob);
+    expect(result.current.clip?.durationMs).toBe(3000);
+    expect(result.current.error).toBeNull();
+  });
+  it("shows the sample failure message and never inspects anything", async () => {
+    const { result } = renderHook(() => useAudioRecorder(null));
+    act(() =>
+      result.current.loadClip(async () => {
+        throw new SampleClipError();
+      }),
+    );
+    await waitFor(() => expect(result.current.phase).toBe("error"));
+    expect(result.current.error).toBe(new SampleClipError().message);
+    expect(result.current.clip).toBeNull();
+    expect(prepare).not.toHaveBeenCalled();
+  });
+  it("hides unexpected loader failures behind the generic clip message", async () => {
+    const { result } = renderHook(() => useAudioRecorder(null));
+    act(() =>
+      result.current.loadClip(async () => {
+        throw new Error("private loader detail");
+      }),
+    );
+    await waitFor(() => expect(result.current.phase).toBe("error"));
+    expect(result.current.error).toMatch(/invalid, corrupt, or unsupported/);
+    expect(result.current.error).not.toContain("private");
+  });
+  it("cancels a pending load on reset and ignores its late result", async () => {
+    let finish: (blob: Blob) => void = () => undefined;
+    let signal: AbortSignal | undefined;
+    const { result } = renderHook(() => useAudioRecorder(null));
+    act(() =>
+      result.current.loadClip((received) => {
+        signal = received;
+        return new Promise<Blob>((resolve) => {
+          finish = resolve;
+        });
+      }),
+    );
+    expect(result.current.phase).toBe("validating");
+    act(() => result.current.reset());
+    expect(signal?.aborted).toBe(true);
+    await act(async () => {
+      finish(new Blob(["late"]));
+    });
+    expect(result.current.phase).toBe("idle");
+    expect(result.current.clip).toBeNull();
+    expect(prepare).not.toHaveBeenCalled();
+  });
+  it("permits one pending load at a time", () => {
+    const load = vi.fn(() => new Promise<Blob>(() => undefined));
+    const { result } = renderHook(() => useAudioRecorder(null));
+    act(() => {
+      result.current.loadClip(load);
+      result.current.loadClip(load);
+    });
+    expect(load).toHaveBeenCalledTimes(1);
   });
 });

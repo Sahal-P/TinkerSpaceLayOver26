@@ -1,9 +1,22 @@
 "use client";
 
-import { ArrowRight, Pause, Play, RotateCcw, Upload } from "lucide-react";
+import {
+  ArrowRight,
+  AudioLines,
+  Pause,
+  Play,
+  RotateCcw,
+  Upload,
+} from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Button, arrowNudge } from "@/components/ui/button";
 import { ChoiceChips } from "@/components/ui/choice-chips";
 import { Container } from "@/components/ui/container";
@@ -13,6 +26,7 @@ import { ScreenIntro } from "@/features/journey/components/flow/screen-intro";
 import { RecordButton } from "./record-button";
 import { languageOptions } from "@/features/journey/fixtures";
 import { useJourney } from "@/features/journey/journey-store";
+import { fetchSampleClip } from "@/features/journey/sample-clip";
 import { useAudioRecorder } from "@/features/journey/use-audio-recorder";
 import { formatClock } from "@/lib/format";
 import { duration, ease } from "@/lib/motion";
@@ -38,6 +52,7 @@ export function RecordScreen() {
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const upload = useRef<HTMLInputElement>(null);
+  const sampleNote = useId();
   useEffect(() => {
     if (!recorder.clip) return;
     const element = audio.current;
@@ -89,6 +104,10 @@ export function RecordScreen() {
         "Playback is unavailable in this browser. You can still process the validated clip.",
       );
     }
+  };
+  const chooseSample = () => {
+    clearPreviousClip();
+    recorder.loadClip(fetchSampleClip);
   };
   const shape = () => {
     audio.current?.pause();
@@ -272,14 +291,34 @@ export function RecordScreen() {
                   </div>
                 ) : null}
                 {!busy ? (
-                  <Button
-                    variant="ghost"
-                    disabled={!hydrated}
-                    onClick={() => upload.current?.click()}
-                  >
-                    <Upload aria-hidden className="size-4" />
-                    Upload audio
-                  </Button>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <Button
+                        variant="ghost"
+                        disabled={!hydrated}
+                        onClick={() => upload.current?.click()}
+                      >
+                        <Upload aria-hidden className="size-4" />
+                        Upload audio
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        disabled={!hydrated}
+                        aria-describedby={sampleNote}
+                        onClick={chooseSample}
+                      >
+                        <AudioLines aria-hidden className="size-4" />
+                        Use sample audio
+                      </Button>
+                    </div>
+                    <p
+                      id={sampleNote}
+                      className="max-w-xs text-center text-xs text-ink-muted"
+                    >
+                      Sample: a synthetic Hindi recording generated with
+                      ElevenLabs.
+                    </p>
+                  </div>
                 ) : recorder.phase !== "recording" ? (
                   <Button variant="ghost" onClick={reset}>
                     Cancel

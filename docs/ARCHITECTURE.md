@@ -39,7 +39,7 @@ app → features → components, lib, config, server
 | Route         | Screen                                                                 | Rendering |
 | ------------- | ---------------------------------------------------------------------- | --------- |
 | `/`           | Landing: split hero with the 3D island, photo bento of the demo route, feature panel, how-it-works, Lens band, CTA | Static |
-| `/record`     | Recorder: consent, live waveform, timer, playback, upload states        | Static    |
+| `/record`     | Recorder: consent, live waveform, timer, playback, upload states, bundled sample clip | Static |
 | `/processing` | Staged transcription → translation → landmarks → route                 | Static    |
 | `/review`     | Transcript, editable steps, uncertainty resolution, confirmation       | Static    |
 | `/guide`      | Step cards, compass dial, progress, interactive 3D route; `?step=N` opens step N | Static |
@@ -76,6 +76,16 @@ The server rejects confirmed digital silence with `no_speech` before Gemini. Thi
 detection: compressed audio, quiet speech, ambient noise, and nonzero signals still rely on Gemini.
 Upload controls wait for hydration so early WebKit file events are not lost. Audio stays in memory
 for retry and is released on success/reset/flow exit.
+
+The Record screen also offers a bundled sample clip so reviewers can test the real pipeline without
+a microphone or a file. `public/samples/hindi-directions.mp3` is synthetic Hindi speech generated
+with ElevenLabs (about 84 seconds, 1.3 MB, mono MP3), shipped byte for byte so its embedded content
+credentials stay intact. `sample-clip.ts` fetches it, and the recorder hook's `loadClip` feeds it
+through the same `inspect` path as an upload. The 4 MiB, 2 to 120 second and audio-only limits, the
+consent requirement and the server's revalidation are unchanged, and cancel or reset abort the
+fetch. Choosing the sample calls no API and implies no consent. It is processed by Gemini like any
+clip: not a canned result, counted against the extraction limits, and able to time out. A unit test
+inspects the bundled file with the server's `inspectAudio`, so a bad replacement fails the tests.
 
 Rejection diagnostics are server-only: fixed stage/reason codes, whitelisted schema paths and
 request IDs. The client error envelope is unchanged. Complete arrival statements count as arrival
@@ -130,7 +140,8 @@ Translation and audio caches are private memory only, keyed by session/content/l
 on the server. Server cache: 64 MiB / 128 entries, lazy 30-minute TTL and in-flight deduplication.
 Browser cache: 16 MiB / 128 entries, reset on draft replacement/edit, journey unmount or reload.
 Only the next step is prefetched, after current playback completes. No Storage, IndexedDB, CDN,
-filesystem or Firestore audio is used by the app. Atomic Firestore speech budgets limit all API
+filesystem or Firestore audio is used for recordings or narration (the only audio the app ships is
+the static demo sample clip). Atomic Firestore speech budgets limit all API
 requests (including server cache hits) to 12/minute and 120/day per session, 500/day globally.
 
 Processing shows real upload progress plus an animated loader, then an indeterminate spinner/line.

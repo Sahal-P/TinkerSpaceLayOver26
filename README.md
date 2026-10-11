@@ -11,7 +11,8 @@ can follow, check with your camera, and share.
 
 ## How it works
 
-1. **Record.** Capture with the microphone or upload a clip, after explicit consent.
+1. **Record.** Capture with the microphone, upload a clip, or try the bundled sample, after
+   explicit consent.
 2. **Process.** The server validates the audio. Gemini transcribes and translates it, then extracts
    ordered steps that quote the transcript. Anything the speaker was unsure about is flagged, not
    guessed.
@@ -32,7 +33,7 @@ Phase 3a is code complete. Live acceptance is still pending.
 | Route         | Screen                                                        | Backed by                             |
 | ------------- | ------------------------------------------------------------- | ------------------------------------- |
 | `/`           | Landing page with the 3D island hero                          | Static content                        |
-| `/record`     | Record or upload audio, consent, language hint                | Real audio                            |
+| `/record`     | Record, upload or use the sample clip; consent; language hint | Real audio                            |
 | `/processing` | Real upload progress, then Gemini processing; cancel or retry | `POST /api/directions/extract`        |
 | `/review`     | Transcript, editable steps, uncertainty acknowledgement       | The extracted draft                   |
 | `/guide`      | Step cards, direction cue, 3D route, opt-in voice             | The reviewed draft; voice uses Gemini |
@@ -46,6 +47,13 @@ no service calls unless you turn on voice, and it never stands in for a failed l
 is the only path where Lens check and Share are interactive, and even there they use deterministic
 verdicts and a mock link. Photos stay on the device and are not analyzed, and nothing is saved or
 published. Live guides see a "coming later" screen instead. Reloading clears any guide.
+
+**Sample clip.** "Use sample audio" on `/record` loads a bundled synthetic Hindi recording (about a
+minute and a half, generated with ElevenLabs), so reviewers can try the whole flow without a
+microphone or a file of their own. It is validated exactly like an upload and still needs the
+consent checkbox. It then goes through the real pipeline, so processing it needs the live setup
+below and counts against the extraction limits. It is not a canned result, and like any long clip
+it can time out and be retried.
 
 **Still unverified.** Automated tests mock Gemini, so these remain open: native-speaker review of
 Malayalam and Hindi extraction and narration, a mixed-language clip that produced a valid draft but
@@ -210,6 +218,7 @@ src/
   styles/tokens.css     Design tokens, the only source of design values
 docs/                   Architecture, API contract, phases and verification notes
 e2e/                    Playwright specs
+public/samples/         The bundled synthetic sample clip
 ```
 
 Imports point downward: `app` to `features` to `components`, `lib`, `config` and `server`. Client
@@ -296,7 +305,8 @@ pnpm test:e2e
 ```
 
 - **Unit and component:** colocated `*.test.ts(x)`, Node by default and jsdom for components. The
-  Gemini and Firestore SDKs are mocked, and automated tests never call live services.
+  Gemini and Firestore SDKs are mocked, and automated tests never call live services. One test
+  validates the bundled sample clip against the upload limits.
 - **End to end:** Playwright runs Chrome and WebKit at 375 by 812 and 1440 by 900. It starts its own
   dev server on port 3210 (or reuses one already there) and intercepts the APIs, so it needs no
   credentials. Chrome uses a fake microphone. The microphone capture test is skipped on WebKit
@@ -360,10 +370,12 @@ Read [AGENTS.md](AGENTS.md) first. In short:
   phone and desktop sizes in light and dark, and the docs cover any new rule, service or env var.
 - Next.js 16 differs from older releases: request APIs are async, `middleware.ts` is now
   `proxy.ts`, and `next lint` is gone. Version-matched docs ship in `node_modules/next/dist/docs/`.
-- Never commit secrets or recordings.
+- Never commit secrets or personal recordings. The one bundled sample clip is synthetic speech.
 
 ## Credits
 
 Photography of Alfama and Lisbon from [Pexels](https://www.pexels.com) by Masood Aslami, ArtHouse
 Studio, Max Avans, Stephan Leuzinger and Mel Legarda, also credited in the site footer. Type is
 Fraunces, Figtree and Geist Mono through `next/font`.
+
+The sample clip is synthetic Hindi speech generated with [ElevenLabs](https://elevenlabs.io).

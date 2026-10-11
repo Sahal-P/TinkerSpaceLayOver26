@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MAX_AUDIO_BYTES } from "@/contracts/audio";
 import { prepareClip, type AudioClip } from "./audio-client";
+import { SampleClipError } from "./sample-clip";
 
 export const recorderTypes = [
   "audio/webm;codecs=opus",
@@ -27,6 +28,8 @@ export function recordingError(error: unknown): string {
   return "Recording could not start. Try again, or upload a supported audio clip.";
 }
 const quiet = Array.from({ length: 56 }, () => 0.08);
+/** Audio to validate: already in hand, or fetched first (such as the bundled sample). */
+type ClipSource = Blob | ((signal: AbortSignal) => Promise<Blob>);
 type Phase =
   | "idle"
   | "requesting"
@@ -88,7 +91,7 @@ export function useAudioRecorder(
       document.removeEventListener("visibilitychange", hidden);
     };
   }, []);
-  async function inspect(blob: Blob, id: number) {
+  async function inspect(source: ClipSource, id: number) {
     inspection.current?.abort();
     const controller = new AbortController();
     inspection.current = controller;
@@ -96,6 +99,14 @@ export function useAudioRecorder(
     setPhase("validating");
     setClip(null);
     try {
+      const blob =
+        typeof source === "function" ? await source(controller.signal) : source;
+      if (
+        !mounted.current ||
+        id !== operation.current ||
+        controller.signal.aborted
+      )
+        return;
       const prepared = await prepareClip(blob, controller.signal);
       if (
         mounted.current &&
@@ -114,9 +125,10 @@ export function useAudioRecorder(
       )
         return;
       const message =
-        failure instanceof Error &&
-        ["AudioInspectionError", "Error"].includes(failure.name) &&
-        /^(Audio must|The file is not)/.test(failure.message)
+        failure instanceof SampleClipError ||
+        (failure instanceof Error &&
+          ["AudioInspectionError", "Error"].includes(failure.name) &&
+          /^(Audio must|The file is not)/.test(failure.message))
           ? failure.message
           : "The clip is invalid, corrupt, or unsupported. Use 2–120 seconds of audio under 4 MiB.";
       setError(message);
@@ -253,13 +265,20 @@ export function useAudioRecorder(
       }
     }
   }
-  function upload(file: File) {
+  function begin(source: ClipSource) {
     if (busy.current) return;
     busy.current = true;
     const id = ++operation.current;
     setError(null);
     release();
-    void inspect(file, id);
+    void inspect(source, id);
+  }
+  function upload(file: File) {
+    begin(file);
+  }
+  /** Validates audio from an async source with the same rules, limits and cancellation as an upload. */
+  function loadClip(load: (signal: AbortSignal) => Promise<Blob>) {
+    begin(load);
   }
   function reset() {
     operation.current++;
@@ -274,5 +293,16 @@ export function useAudioRecorder(
     setLevels(quiet);
     setPhase("idle");
   }
-  return { phase, clip, error, elapsedMs, levels, start, stop, upload, reset };
+  return {
+    phase,
+    clip,
+    error,
+    elapsedMs,
+    levels,
+    start,
+    stop,
+    upload,
+    loadClip,
+    reset,
+  };
 }

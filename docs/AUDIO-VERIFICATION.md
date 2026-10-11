@@ -1,7 +1,8 @@
 # Controlled live audio verification
 
 Automated tests use mocked services. This checklist is for explicit, bounded live verification.
-Record only with permission. Do not commit recordings, credentials, or full live transcripts.
+Record only with permission. Do not commit recordings, credentials, or full live transcripts. The
+one exception is the bundled demo sample in `public/samples/`: synthetic speech shipped as an app asset.
 Local paths to clips/credentials may be provided; never paste private-key contents into chat.
 
 ## Prerequisites

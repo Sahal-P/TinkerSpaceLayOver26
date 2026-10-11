@@ -1,6 +1,7 @@
 # Targeted Hindi MP3 extraction fix
 
-2026-10-11. Branch base: voice-guidance review `948e988`. Both ElevenLabs clips remain outside Git.
+2026-10-11. Branch base: voice-guidance review `948e988`. Both ElevenLabs clips remained outside Git for this fix; the Sudhir clip has since been bundled as
+the demo sample (see the follow-up at the end).
 The user confirmed the Monika and Sudhir recordings use the same script; no text script was supplied.
 
 ## Reproduction and correction
@@ -52,3 +53,11 @@ The UI screenshot captures only the generic successful status, excluding transcr
   establish a production reliability rate. No full text script was available for independent
   fact-by-fact accuracy comparison. Native-speaker review of the original audio and extracted guide
   is still required. Physical Safari and previously noted mixed/TTS limitations remain pending.
+
+## Follow-up: bundled demo sample
+
+The Sudhir clip (same size and duration as recorded above) now ships unchanged as
+`public/samples/hindi-directions.mp3`, chosen with "Use sample audio" on `/record`. It is synthetic
+speech, not a personal recording, and keeps its embedded content credentials. The Monika clip stays
+outside Git. The sample runs through the real pipeline, so the timeouts in the ledger above can
+happen to reviewers too; the explicit retry flow is unchanged.

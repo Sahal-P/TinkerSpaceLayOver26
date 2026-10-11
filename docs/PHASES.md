@@ -142,6 +142,19 @@ Provider availability remains external; no additional live extraction batch was 
 No extra live extraction calls were made for this correction. Reprocess an existing in-memory
 guide to apply the new extraction/refinement rules; previous drafts are not silently rewritten.
 
+## Bundled sample clip
+
+- [x] Ship the synthetic Hindi ElevenLabs clip unchanged as `public/samples/hindi-directions.mp3`
+- [x] "Use sample audio" on `/record` loads it through the upload validation; consent is still required
+- [x] A failed download shows a clear, retryable error; cancel and reset abort the load
+- [x] Unit tests inspect the bundled file with the server validator; Chrome/WebKit tests cover the
+      one-click path with mocked APIs
+- [ ] One live extraction of the bundled clip on the deployed environment, within the bounded procedure
+
+The clip matches the Sudhir recording in [HINDI-CLIP-FIX.md](HINDI-CLIP-FIX.md) (same size and
+duration), whose earlier live runs included two timeouts and one success. It runs through the real
+pipeline, so a shorter clip would process faster and more reliably if reviewers hit timeouts.
+
 ## Phase 3b: Saved and shared guides (deferred)
 
 Wire confirmed saves, publishing/revocation, canonical share URLs/QR, and `/g/[id]` through the
